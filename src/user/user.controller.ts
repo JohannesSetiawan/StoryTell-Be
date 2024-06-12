@@ -1,18 +1,14 @@
 import {
     Controller,
     Get,
-    Param,
     Post,
     Body,
-    Put,
-    Delete,
     UseGuards, 
     Req,
     Res
   } from '@nestjs/common';
-import { UserService } from './user.service';
-import { User as UserModel } from '@prisma/client';
-import { UserCreationData } from './user.dto';
+import { UserService, } from './user.service';
+import { UserCreationData, UserLoginData } from './user.dto';
 import { JwtGuard } from './jwt.guard';
 import { Response } from 'express';
   
@@ -27,18 +23,37 @@ import { Response } from 'express';
         @Body() userData: UserCreationData,
         @Res() res: Response
     ) {
-        const responseData = await this.userService.createUser(userData)
-        res.status(201).json(responseData);
+      try{
+        const responseData = await this.userService.register(userData)
+        return res.status(201).json(responseData);
+      } catch (error){
+        return res.status(400).json({"message":error.message})
+      }
+    }
+
+    @Post('login')
+    async login(
+        @Body() userData: UserLoginData,
+        @Res() res: Response
+    ) {
+      try{
+        const responseData = await this.userService.login(userData);
+        return res.status(201).json(responseData);
+      } catch (error){
+        return res.status(400).json({"message":error.message})
+      }
+        
     }
 
     @UseGuards(JwtGuard)
     @Get('')
     async seeUserDetail(@Req() request, @Res() response){
       try{
-        const userId = request.user
-        return response.status(200).json({"id": userId})
+        const userId = request.user.userId
+        const responseData = await this.userService.user(userId);
+        return response.status(200).json(responseData)
       } catch (error){
-        return response.status(400).json({"message":"Error!"})
+        return response.status(400).json({"message":error.message})
       }
     }
 }
