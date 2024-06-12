@@ -105,5 +105,5 @@ Nest is [MIT licensed](LICENSE).
 
 ### Data
 1. User -> userId, uname, password, description, dateCreated.
-2. Story -> storyId, storyName, userId (links to user), description, dateCreated.
-3. Chapter -> chapterId, storyId, userId, content, dateCreated, order.
+2. Story -> storyId, title, userId (links to user), description, dateCreated.
+3. Chapter -> chapterId, storyId, userId, title, content, dateCreated, order.
