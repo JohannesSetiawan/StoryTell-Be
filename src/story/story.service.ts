@@ -22,7 +22,14 @@ export class StoryService{
 
     async getSpecificStory(id: string){
         const story = await this.prisma.story.findFirst({
-            where: {id: id}
+            where: {id: id},
+            include:{
+                chapters:{
+                    orderBy:{
+                        order: 'asc'
+                    }
+                }
+            }
         })
         return story
     }

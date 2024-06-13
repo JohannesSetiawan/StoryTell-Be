@@ -95,7 +95,8 @@ Nest is [MIT licensed](LICENSE).
 
 3. Chapters
 - `POST /chapters` = Create new chapter for a stroy.
-- `GET /chapter/:storyId` = Get all created chapters for a story.
+- `GET /chapter/?storyId=:storyId` = Get all created chapters for a story.
+- `GET /chapter/:chapterId` = Get a chapter with chapterId.
 - `PUT /chapter/:chapterId` = Update chapter with chapterId.
 - `DELETE /chapter/:chapterId` = Delete chapter with chapterId.
 

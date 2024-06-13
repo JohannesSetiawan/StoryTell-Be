@@ -7,7 +7,8 @@ import {
     Req,
     Res,
     Put, Delete,
-    Param
+    Param,
+    Query
 } from '@nestjs/common';
 import { StoryService } from './story.service';
 import { Response } from 'express';
@@ -57,10 +58,10 @@ export class StoryController {
         }
     }
 
-    @Get('/user/:userId')
-    async getUserSpecificStory(@Param() param, @Res() response){
+    @Get('')
+    async getUserSpecificStory(@Res() response, @Query('userId') userId: string){
         try{
-            const story = await this.storyService.getSpecificUserStories(param.userId)
+            const story = await this.storyService.getSpecificUserStories(userId)
             return response.status(200).json(story)
         } catch(error){
             return response.status(400).json({"message": error.message})
