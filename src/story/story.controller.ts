@@ -58,10 +58,10 @@ export class StoryController {
         }
     }
 
-    @Get('')
-    async getUserSpecificStory(@Res() response, @Query('userId') userId: string){
+    @Get('/user/:userId')
+    async getUserSpecificStory(@Res() response, @Param() param){
         try{
-            const story = await this.storyService.getSpecificUserStories(userId)
+            const story = await this.storyService.getSpecificUserStories(param.userId)
             return response.status(200).json(story)
         } catch(error){
             return response.status(400).json({"message": error.message})
