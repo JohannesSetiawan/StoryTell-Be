@@ -24,6 +24,11 @@ export class UserService {
     const user =  await this.prisma.user.findFirst({
       where: {username: username}
     })
+
+    if (user === null){
+      throw new Error("You haven't registered yet!")
+    }
+
     const hashed_password = user.password
     const is_password_matched = await bcrypt.compare(password, hashed_password)
     if (is_password_matched){
