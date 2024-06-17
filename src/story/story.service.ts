@@ -16,7 +16,15 @@ export class StoryService{
     }
 
     async getAllStories(){
-        const stories = await this.prisma.story.findMany({})
+        const stories = await this.prisma.story.findMany({
+            include: {
+                author: {
+                  select: {
+                    username: true,
+                  },
+                },
+              },
+        })
         return stories
     }
 
