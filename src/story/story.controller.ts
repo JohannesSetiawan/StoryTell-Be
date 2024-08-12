@@ -15,8 +15,8 @@ import { Response } from 'express';
 import { StoryDto } from './story.dto';
 import { JwtGuard } from 'src/user/jwt.guard';
 import { request } from 'http';
-import { AuthenticationError } from 'src/Exceptions/AuthenticationError';
-import { AuthorizationError } from 'src/Exceptions/AuthorizationError';
+import { AuthenticationError } from '../Exceptions/AuthenticationError';
+import { AuthorizationError } from '../Exceptions/AuthorizationError';
 
 @Controller('story')
 export class StoryController {

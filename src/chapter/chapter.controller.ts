@@ -13,7 +13,7 @@ import {
 import { JwtGuard } from 'src/user/jwt.guard';
 import { ChapterService } from './chapter.service';
 import { ChapterDto } from './chapter.dto';
-import { AuthenticationError } from 'src/Exceptions/AuthenticationError';
+import { AuthenticationError } from '../Exceptions/AuthenticationError';
   
 @Controller('chapter')
 export class ChapterController {

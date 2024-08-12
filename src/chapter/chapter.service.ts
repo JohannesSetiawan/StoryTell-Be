@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChapterDto } from "./chapter.dto";
-import { AuthorizationError } from 'src/Exceptions/AuthorizationError';
+import { AuthorizationError } from '../Exceptions/AuthorizationError';
 
 @Injectable()
 export class ChapterService{
