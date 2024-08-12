@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChapterDto } from "./chapter.dto";
+import { AuthorizationError } from 'src/Exceptions/AuthorizationError';
 
 @Injectable()
 export class ChapterService{
@@ -15,7 +16,7 @@ export class ChapterService{
         })
 
         if (!story){
-            throw new Error("Unauthorized!")
+            throw new AuthorizationError("Unauthorized!")
         }
         
         const newChapter = await this.prisma.chapter.create({
@@ -26,19 +27,19 @@ export class ChapterService{
     }
 
     async getAllChapterForStory(storyId: string){
-        const stories = await this.prisma.chapter.findMany({
+        const chapters = await this.prisma.chapter.findMany({
             where: {storyId: storyId},
             orderBy:{order: 'asc'}
         })
 
-        return stories
+        return chapters
     }
 
     async getSpecificChapter(id: string){
-        const story = await this.prisma.chapter.findFirst({
+        const chapter = await this.prisma.chapter.findFirst({
             where: {id: id}
         })
-        return story
+        return chapter
     }
 
     async updateChapter(chapterId: string, userId: string, data: ChapterDto){
@@ -50,7 +51,7 @@ export class ChapterService{
         })
 
         if (!story){
-            throw new Error("Unauthorized!")
+            throw new AuthorizationError("Unauthorized!")
         }
 
         const updatedChapter = await this.prisma.chapter.update({
@@ -72,7 +73,7 @@ export class ChapterService{
         })
 
         if (!story){
-            throw new Error("Unauthorized!")
+            throw new AuthorizationError("Unauthorized!")
         }
 
         const deletedStory = await this.prisma.chapter.delete({ 

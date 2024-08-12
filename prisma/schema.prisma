@@ -30,7 +30,7 @@ model Story {
   author    User?    @relation(fields: [authorId], references: [id])
   authorId  String
   chapters Chapter[]
-  private Boolean @default(false)
+  isprivate Boolean @default(false)
 }
 
 model Chapter {

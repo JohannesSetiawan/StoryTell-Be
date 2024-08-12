@@ -15,7 +15,9 @@ import { Response } from 'express';
 import { StoryDto } from './story.dto';
 import { JwtGuard } from 'src/user/jwt.guard';
 import { request } from 'http';
-  
+import { AuthenticationError } from 'src/Exceptions/AuthenticationError';
+import { AuthorizationError } from 'src/Exceptions/AuthorizationError';
+
 @Controller('story')
 export class StoryController {
     constructor(
@@ -28,12 +30,15 @@ export class StoryController {
         try{
             const authorId = request.user.userId
             if (!authorId) {
-                throw new Error("Unauthorized!")
+                throw new AuthenticationError("You are not authenticated yet!")
             }
             createStoryData.authorId = authorId
             const story = await this.storyService.createStory(createStoryData)
             return response.status(201).json(story)
         } catch(error){
+            if (typeof error.status !== 'undefined'){
+                return response.status(error.status).json({"message": error.message})
+            }
             return response.status(400).json({"message": error.message})
         }
     }
@@ -48,12 +53,22 @@ export class StoryController {
         }
     }
 
+    @UseGuards(JwtGuard)
     @Get('/:id')
-    async getStory(@Param() param, @Res() response){
+    async getStory(@Param() param, @Req() request, @Res() response){
         try{
             const story = await this.storyService.getSpecificStory(param.id)
+            if (story.isprivate){
+                const authorId = request.user.userId
+                if (authorId !== story.authorId) {
+                    throw new AuthorizationError("You can't access this content!")
+                }
+            }
             return response.status(200).json(story)
         } catch(error){
+            if (typeof error.status !== 'undefined'){
+                return response.status(error.status).json({"message": error.message})
+            }
             return response.status(400).json({"message": error.message})
         }
     }
@@ -76,6 +91,9 @@ export class StoryController {
             const updateStory = await this.storyService.updateStory(param.id, authorId, data)
             return response.status(200).json(updateStory)
         } catch(error){
+            if (typeof error.status !== 'undefined'){
+                return response.status(error.status).json({"message": error.message})
+            }
             return response.status(400).json({"message": error.message})
         }
     }
@@ -88,6 +106,9 @@ export class StoryController {
             await this.storyService.deleteStory(param.id, authorId)
             return response.status(200).json({"message": "Deleted successfully!"})
         } catch(error){
+            if (typeof error.status !== 'undefined'){
+                return response.status(error.status).json({"message": error.message})
+            }
             return response.status(400).json({"message": error.message})
         }
     }

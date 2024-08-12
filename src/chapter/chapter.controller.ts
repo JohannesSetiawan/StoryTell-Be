@@ -13,6 +13,7 @@ import {
 import { JwtGuard } from 'src/user/jwt.guard';
 import { ChapterService } from './chapter.service';
 import { ChapterDto } from './chapter.dto';
+import { AuthenticationError } from 'src/Exceptions/AuthenticationError';
   
 @Controller('chapter')
 export class ChapterController {
@@ -27,13 +28,15 @@ export class ChapterController {
             const authorId = request.user.userId
 
             if (!authorId) {
-                throw new Error("Unauthorized!")
+                throw new AuthenticationError("You are not authenticated yet!")
             }
-
 
             const chapter = await this.chapterService.createChapter(createChapterData, authorId)
             return response.status(201).json(chapter)
         } catch(error){
+            if (typeof error.status !== 'undefined'){
+                return response.status(error.status).json({"message": error.message})
+            }
             return response.status(400).json({"message": error.message})
         }
     }
@@ -66,6 +69,9 @@ export class ChapterController {
             const updatedChapter = await this.chapterService.updateChapter(param.id, authorId, data)
             return response.status(200).json(updatedChapter)
         } catch(error){
+            if (typeof error.status !== 'undefined'){
+                return response.status(error.status).json({"message": error.message})
+            }
             return response.status(400).json({"message": error.message})
         }
     }
@@ -78,6 +84,9 @@ export class ChapterController {
             await this.chapterService.deleteChapter(param.id, authorId)
             return response.status(200).json({"message": "Deleted successfully!"})
         } catch(error){
+            if (typeof error.status !== 'undefined'){
+                return response.status(error.status).json({"message": error.message})
+            }
             return response.status(400).json({"message": error.message})
         }
     }

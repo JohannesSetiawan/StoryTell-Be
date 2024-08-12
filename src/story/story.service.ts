@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { StoryDto } from "./story.dto";
 import { Prisma, Story } from "@prisma/client";
+import { AuthorizationError } from 'src/Exceptions/AuthorizationError';
+
 @Injectable()
 export class StoryService{
     constructor(private prisma: PrismaService) {}
@@ -17,6 +19,7 @@ export class StoryService{
 
     async getAllStories(){
         const stories = await this.prisma.story.findMany({
+            where: {isprivate: false},
             include: {
                 author: {
                   select: {
@@ -56,7 +59,7 @@ export class StoryService{
         })
 
         if (!story){
-            throw new Error("Unauthorized!")
+            throw new AuthorizationError("Unauthorized!")
         }
 
         const updatedStory = await this.prisma.story.update({
@@ -74,7 +77,7 @@ export class StoryService{
         })
 
         if (!story){
-            throw new Error("Unauthorized!")
+            throw new AuthorizationError("Unauthorized!")
         }
 
         const deletedStory = await this.prisma.story.delete({ 
