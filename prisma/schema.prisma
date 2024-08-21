@@ -15,30 +15,42 @@ datasource db {
 
 model User {
   id    String     @default(uuid()) @id
-  username  String?
-  password String?
+  username  String
+  password String
   description String? @default("No description")
   dateCreated DateTime @default(now())
   stories Story[]
+  storyComments StoryComment[]
 }
 
 model Story {
-  id        String      @default(uuid()) @id
-  title     String
-  description   String?
-  dateCreated DateTime @default(now())
-  author    User?    @relation(fields: [authorId], references: [id])
-  authorId  String
-  chapters Chapter[]
-  isprivate Boolean @default(false)
+  id            String      @default(uuid()) @id
+  title         String
+  description   String?     @default("No description")
+  dateCreated   DateTime @default(now())
+  author        User    @relation(fields: [authorId], references: [id])
+  authorId      String
+  chapters      Chapter[]
+  isprivate     Boolean @default(false)
+  storyComments StoryComment[]
 }
 
 model Chapter {
-  id        String      @default(uuid()) @id
-  title     String
-  content   String?
-  dateCreated DateTime @default(now())
-  story    Story?    @relation(fields: [storyId], references: [id])
-  storyId  String
-  order Int? @default(1)
+  id            String    @default(uuid()) @id
+  title         String
+  content       String
+  dateCreated   DateTime  @default(now())
+  story         Story    @relation(fields: [storyId], references: [id])
+  storyId       String
+  order         Int      @default(1)
+}
+
+model StoryComment {
+  id          String    @default(uuid()) @id
+  author      User      @relation(fields: [authorId], references: [id])
+  authorId    String
+  story       Story     @relation(fields: [storyId], references: [id])
+  storyId     String
+  dateCreated DateTime  @default(now())
+  content     String
 }

@@ -1,5 +1,5 @@
 export type UserCreationData = {
-    name?: string; 
+    username: string; 
     password: string
 }
 
