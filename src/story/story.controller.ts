@@ -53,16 +53,12 @@ export class StoryController {
         }
     }
 
-    @UseGuards(JwtGuard)
     @Get('/:id')
     async getStory(@Param() param, @Req() request, @Res() response){
         try{
             const story = await this.storyService.getSpecificStory(param.id)
             if (story.isprivate){
-                const authorId = request.user.userId
-                if (authorId !== story.authorId) {
-                    throw new AuthorizationError("You can't access this content!")
-                }
+                this.checkIsPrivate(story, request)
             }
             return response.status(200).json(story)
         } catch(error){
@@ -110,6 +106,14 @@ export class StoryController {
                 return response.status(error.status).json({"message": error.message})
             }
             return response.status(400).json({"message": error.message})
+        }
+    }
+
+    @UseGuards(JwtGuard)
+    checkIsPrivate(story, request){
+        const authorId = request.user.userId
+        if (authorId !== story.authorId) {
+            throw new AuthorizationError("You can't access this story!")
         }
     }
 }
