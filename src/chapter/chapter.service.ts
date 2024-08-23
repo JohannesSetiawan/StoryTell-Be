@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChapterDto } from "./chapter.dto";
 import { AuthorizationError } from '../Exceptions/AuthorizationError';
+import { NotFoundError } from "../Exceptions/NotFoundError";
 
 @Injectable()
 export class ChapterService{
@@ -12,11 +13,15 @@ export class ChapterService{
         const storyId = data.storyId
 
         const story = await this.prisma.story.findFirst({
-            where: {id: storyId, authorId: userId}
+            where: {id: storyId}
         })
 
         if (!story){
-            throw new AuthorizationError("Unauthorized!")
+            throw new NotFoundError("Story not found!")
+        }
+
+        if (story.authorId !== userId){
+            throw new AuthorizationError("You don't have permission to update this story!")
         }
         
         const newChapter = await this.prisma.chapter.create({
@@ -36,9 +41,14 @@ export class ChapterService{
     }
 
     async getSpecificChapter(id: string){
-        const chapter = await this.prisma.chapter.findFirst({
+        const chapter = await this.prisma.chapter.findUnique({
             where: {id: id}
         })
+
+        if (!chapter){
+            throw new NotFoundError("Chapter not found!")
+        }
+
         return chapter
     }
 
@@ -47,11 +57,23 @@ export class ChapterService{
         const storyId = data.storyId
 
         const story = await this.prisma.story.findFirst({
-            where: {id: storyId, authorId: userId}
+            where: {id: storyId}
         })
 
         if (!story){
-            throw new AuthorizationError("Unauthorized!")
+            throw new NotFoundError("Story not found!")
+        }
+
+        if (story.authorId !== userId){
+            throw new AuthorizationError("You don't have permission to update this chapter!")
+        }
+
+        const chapter = await this.prisma.chapter.findUnique({
+            where: {id: chapterId}
+        })
+
+        if (!chapter){
+            throw new NotFoundError("Chapter not found!")
         }
 
         const updatedChapter = await this.prisma.chapter.update({
@@ -67,20 +89,32 @@ export class ChapterService{
         const chapter = await this.prisma.chapter.findFirst({
             where: {id: chapterId}
         })
+
+        if (!chapter){
+            throw new NotFoundError("Chapter not found!")
+        }
         
         const story = await this.prisma.story.findFirst({
-            where:{id: chapter.storyId, authorId: userId}
+            where: {id: chapter.storyId}
         })
 
         if (!story){
-            throw new AuthorizationError("Unauthorized!")
+            throw new NotFoundError("Story not found!")
         }
 
-        const deletedStory = await this.prisma.chapter.delete({ 
+        if (story.authorId !== userId){
+            throw new AuthorizationError("You don't have permission to update this story!")
+        }
+
+        if (!story){
+            throw new AuthorizationError("You don't have permission to delete this chapter!")
+        }
+
+        const deletedChapter = await this.prisma.chapter.delete({ 
             where: {id: chapterId}
         })
 
-        return deletedStory
+        return deletedChapter
     }
 
 }

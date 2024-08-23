@@ -3,6 +3,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { StoryDto } from "./story.dto";
 import { Prisma, Story } from "@prisma/client";
 import { AuthorizationError } from '../Exceptions/AuthorizationError';
+import { NotFoundError } from "../Exceptions/NotFoundError";
 
 @Injectable()
 export class StoryService{
@@ -32,7 +33,7 @@ export class StoryService{
     }
 
     async getSpecificStory(id: string){
-        const story = await this.prisma.story.findFirst({
+        const story = await this.prisma.story.findUnique({
             where: {id: id},
             include:{
                 chapters:{
@@ -42,6 +43,11 @@ export class StoryService{
                 }
             }
         })
+
+        if (!story){
+            throw new NotFoundError("Story not found!")
+        }
+
         return story
     }
 
@@ -54,12 +60,16 @@ export class StoryService{
 
     async updateStory(storyId: string, userId: string, data: StoryDto){
 
-        const story = await this.prisma.story.findFirst({
-            where: {id: storyId, authorId: userId}
+        const story = await this.prisma.story.findUnique({
+            where: {id: storyId}
         })
 
         if (!story){
-            throw new AuthorizationError("Unauthorized!")
+            throw new NotFoundError("Story not found!")
+        }
+
+        if (story.authorId !== userId){
+            throw new AuthorizationError("You don't have permission to update this story!")
         }
 
         const updatedStory = await this.prisma.story.update({
@@ -72,12 +82,16 @@ export class StoryService{
 
     async deleteStory(storyId: string, userId: string){
 
-        const story = await this.prisma.story.findFirst({
-            where: {id: storyId, authorId: userId}
+        const story = await this.prisma.story.findUnique({
+            where: {id: storyId}
         })
 
         if (!story){
-            throw new AuthorizationError("Unauthorized!")
+            throw new NotFoundError("Story not found!")
+        }
+
+        if (story.authorId !== userId){
+            throw new AuthorizationError("You don't have permission to delete this story!")
         }
 
         const deletedStory = await this.prisma.story.delete({ 

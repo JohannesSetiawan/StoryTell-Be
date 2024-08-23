@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { StoryCommentDto } from "./story.comment.dto";
 import { AuthorizationError } from '../Exceptions/AuthorizationError';
-import { NotFoundError } from "src/Exceptions/NotFoundError";
+import { NotFoundError } from "../Exceptions/NotFoundError";
 
 @Injectable()
 export class StoryCommentService{
@@ -40,11 +40,15 @@ export class StoryCommentService{
     async updateComment(commentId: string, userId: string, storyId: string, data: StoryCommentDto){
 
         const comment = await this.prisma.storyComment.findFirst({
-            where: {id: commentId, authorId: userId, storyId}
+            where: {id: commentId, storyId}
         })
 
         if (!comment){
             throw new NotFoundError("Comment not found!")
+        }
+
+        if (comment.authorId !== userId){
+            throw new AuthorizationError("You are not allowed to changes this comment!")
         }
 
         const updatedComment = await this.prisma.storyComment.update({
@@ -58,11 +62,15 @@ export class StoryCommentService{
     async deleteComment(commentId: string, userId: string, storyId: string){
 
         const comment = await this.prisma.storyComment.findFirst({
-            where: {id: commentId, authorId: userId, storyId}
+            where: {id: commentId, storyId}
         })
         
         if (!comment){
             throw new NotFoundError("Comment not found!")
+        }
+
+        if (comment.authorId !== userId){
+            throw new AuthorizationError("You are not allowed to changes this comment!")
         }
 
         const deletedComment = await this.prisma.storyComment.delete({ 
