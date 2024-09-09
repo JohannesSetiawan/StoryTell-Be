@@ -1,13 +1,16 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
-import { StoryDto } from "./story.dto";
-import { Prisma, Story } from "@prisma/client";
+import { StoryDto, Story } from './story.dto';
 import { AuthorizationError } from '../Exceptions/AuthorizationError';
 import { NotFoundError } from "../Exceptions/NotFoundError";
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class StoryService{
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService,
+                @Inject(CACHE_MANAGER) private cacheService: Cache,
+    ) {}
 
     async createStory(data: StoryDto){
         
@@ -33,6 +36,12 @@ export class StoryService{
     }
 
     async getSpecificStory(id: string){
+        const cachedStoryData = await this.cacheService.get<Story>("story-"+id.toString());
+        
+        if(cachedStoryData){
+            return cachedStoryData
+        }
+
         const story = await this.prisma.story.findUnique({
             where: {id: id},
             include:{
@@ -47,7 +56,7 @@ export class StoryService{
         if (!story){
             throw new NotFoundError("Story not found!")
         }
-
+        await this.cacheService.set("story-"+id.toString(), story);
         return story
     }
 
@@ -77,6 +86,8 @@ export class StoryService{
             where: {id: storyId}
         })
 
+        await this.cacheService.del("story-"+storyId.toString())
+
         return updatedStory
     }
 
@@ -97,6 +108,8 @@ export class StoryService{
         const deletedStory = await this.prisma.story.delete({ 
             where: {id: storyId}
         })
+
+        await this.cacheService.del("story-"+storyId.toString())
 
         return deletedStory
     }

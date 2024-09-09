@@ -1,12 +1,16 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChapterDto } from "./chapter.dto";
+import { Chapter } from "src/story/story.dto";
 import { AuthorizationError } from '../Exceptions/AuthorizationError';
 import { NotFoundError } from "../Exceptions/NotFoundError";
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 
 @Injectable()
 export class ChapterService{
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService,
+        @Inject(CACHE_MANAGER) private cacheService: Cache,) {}
 
     async createChapter(data: ChapterDto, userId: string){
 
@@ -28,6 +32,8 @@ export class ChapterService{
             data, 
         })
 
+        await this.cacheService.del("story-"+storyId.toString())
+
         return newChapter
     }
 
@@ -41,6 +47,12 @@ export class ChapterService{
     }
 
     async getSpecificChapter(id: string){
+        const cachedChapterData = await this.cacheService.get<Chapter>("chapter-"+id.toString());
+        
+        if(cachedChapterData){
+            return cachedChapterData
+        }
+
         const chapter = await this.prisma.chapter.findUnique({
             where: {id: id}
         })
@@ -48,6 +60,8 @@ export class ChapterService{
         if (!chapter){
             throw new NotFoundError("Chapter not found!")
         }
+
+        await this.cacheService.set("chapter-"+id.toString(), chapter);
 
         return chapter
     }
@@ -81,6 +95,8 @@ export class ChapterService{
             where: {id: chapterId, storyId: storyId}
         })
 
+        await this.cacheService.del("chapter-"+chapterId.toString());
+
         return updatedChapter
     }
 
@@ -113,6 +129,8 @@ export class ChapterService{
         const deletedChapter = await this.prisma.chapter.delete({ 
             where: {id: chapterId}
         })
+
+        await this.cacheService.del("chapter-"+chapterId.toString());
 
         return deletedChapter
     }
