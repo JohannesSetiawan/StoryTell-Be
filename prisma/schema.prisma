@@ -53,4 +53,7 @@ model StoryComment {
   storyId     String
   dateCreated DateTime  @default(now())
   content     String
+  parentId    String?
+  parent      StoryComment?   @relation("ParentChildComment", fields: [parentId], references: [id], onDelete: Cascade)
+  childs      StoryComment[]  @relation("ParentChildComment")
 }

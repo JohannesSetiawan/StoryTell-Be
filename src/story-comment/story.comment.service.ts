@@ -10,10 +10,10 @@ export class StoryCommentService{
 
     async createStoryComment(data: StoryCommentDto, userId: string, storyId: string){
 
-        const {content} = data
+        const {content, parentId} = data
         
         const newStoryComment = await this.prisma.storyComment.create({
-            data: {storyId, content, authorId: userId}, 
+            data: {storyId, content, parentId, authorId: userId}, 
         })
 
         return newStoryComment
