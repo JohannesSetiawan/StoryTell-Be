@@ -1,4 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Inject } from "@nestjs/common";
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { PrismaService } from "../prisma/prisma.service";
 import { StoryCommentDto } from "./story.comment.dto";
 import { AuthorizationError } from '../Exceptions/AuthorizationError';
@@ -6,7 +8,8 @@ import { NotFoundError } from "../Exceptions/NotFoundError";
 
 @Injectable()
 export class StoryCommentService{
-    constructor(private prisma: PrismaService) {}
+    constructor(private prisma: PrismaService,
+        @Inject(CACHE_MANAGER) private cacheService: Cache) {}
 
     async createStoryComment(data: StoryCommentDto, userId: string, storyId: string){
 
@@ -15,6 +18,8 @@ export class StoryCommentService{
         const newStoryComment = await this.prisma.storyComment.create({
             data: {storyId, content, parentId, authorId: userId}, 
         })
+
+        await this.cacheService.del("story-"+storyId.toString())
 
         return newStoryComment
     }
@@ -29,9 +34,9 @@ export class StoryCommentService{
         return comments
     }
 
-    async getSpecificCommentForStory(storyId: string){
+    async getSpecificCommentForStory(commentId: string){
         const comment = await this.prisma.storyComment.findUnique({
-            where: {id: storyId}
+            where: {id: commentId}
         })
 
         return comment
@@ -56,15 +61,17 @@ export class StoryCommentService{
             where: {id: commentId, authorId: userId, storyId}
         })
 
+        await this.cacheService.del("story-"+storyId.toString())
+
         return updatedComment
     }
 
     async deleteComment(commentId: string, userId: string, storyId: string){
 
-        const comment = await this.prisma.storyComment.findFirst({
-            where: {id: commentId, storyId}
+        const comment = await this.prisma.storyComment.findUnique({
+            where: {id: commentId}
         })
-        
+
         if (!comment){
             throw new NotFoundError("Comment not found!")
         }
@@ -76,6 +83,8 @@ export class StoryCommentService{
         const deletedComment = await this.prisma.storyComment.delete({ 
             where: {id: commentId, authorId: userId}
         })
+
+        await this.cacheService.del("story-"+storyId.toString())
 
         return deletedComment
     }

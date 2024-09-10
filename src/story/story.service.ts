@@ -51,7 +51,8 @@ export class StoryService{
                     }
                 },
                 storyComments: {
-                    include:{author:{select:{username:true}}}
+                    include:{author:{select:{username:true}}},
+                    orderBy:{dateCreated: 'asc'}
                 }
             }
         })
