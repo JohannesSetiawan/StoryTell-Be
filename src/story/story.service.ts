@@ -49,6 +49,9 @@ export class StoryService{
                     orderBy:{
                         order: 'asc'
                     }
+                },
+                storyComments: {
+                    include:{author:{select:{username:true}}}
                 }
             }
         })
