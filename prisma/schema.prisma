@@ -28,7 +28,7 @@ model Story {
   title         String
   description   String?     @default("No description")
   dateCreated   DateTime @default(now())
-  author        User    @relation(fields: [authorId], references: [id])
+  author        User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId      String
   chapters      Chapter[]
   isprivate     Boolean @default(false)
@@ -40,16 +40,16 @@ model Chapter {
   title         String
   content       String
   dateCreated   DateTime  @default(now())
-  story         Story    @relation(fields: [storyId], references: [id])
+  story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   storyId       String
   order         Int      @default(1)
 }
 
 model StoryComment {
   id          String    @default(uuid()) @id
-  author      User      @relation(fields: [authorId], references: [id])
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId    String
-  story       Story     @relation(fields: [storyId], references: [id])
+  story       Story     @relation(fields: [storyId], references: [id], onDelete: Cascade)
   storyId     String
   dateCreated DateTime  @default(now())
   content     String
