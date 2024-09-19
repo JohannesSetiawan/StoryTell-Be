@@ -35,7 +35,7 @@ export class UserService {
       const token = sign(
         {username: user.username, id: user.id},
         process.env.SECRET_KEY,
-        {expiresIn: "24h"}
+        {expiresIn: "30 days"}
       )
       return {"user": user.id, "token": token}
     } else{
@@ -62,7 +62,7 @@ export class UserService {
     const token = sign(
       {username: user.username, id: user.id},
       process.env.SECRET_KEY,
-      {expiresIn: "24h"}
+      {expiresIn: "30 days"}
     )
     return {"user": (await newUser).id, "token": token}
     
