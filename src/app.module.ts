@@ -8,11 +8,13 @@ import { StoryCommentModule } from './story-comment/story.comment.module';
 import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
-  imports: [UserModule, 
-    StoryModule, 
-    ChapterModule, 
-    StoryCommentModule, 
-    CacheModule.register({ isGlobal: true, ttl: 60000, max: 10 })],
+  imports: [
+    UserModule,
+    StoryModule,
+    ChapterModule,
+    StoryCommentModule,
+    CacheModule.register({ isGlobal: true, ttl: 60000, max: 10 }),
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

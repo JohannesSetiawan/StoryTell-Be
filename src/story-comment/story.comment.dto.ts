@@ -1,4 +1,4 @@
 export type StoryCommentDto = {
-    content: string
-    parentId?: string
-}
+  content: string;
+  parentId?: string;
+};

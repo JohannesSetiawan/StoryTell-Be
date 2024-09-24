@@ -1,10 +1,9 @@
 export class AuthenticationError extends Error {
+  status: number;
 
-    status: number;
-
-    constructor(message: string) {
-      super(message); 
-      this.name = "Authentication error"; 
-      this.status = 401;
-    }
+  constructor(message: string) {
+    super(message);
+    this.name = 'Authentication error';
+    this.status = 401;
+  }
 }

@@ -4,8 +4,8 @@ import { ChapterService } from './chapter.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
-    controllers:[ChapterController],
-    providers:[ChapterService],
-    imports:[PrismaModule]
+  controllers: [ChapterController],
+  providers: [ChapterService],
+  imports: [PrismaModule],
 })
 export class ChapterModule {}

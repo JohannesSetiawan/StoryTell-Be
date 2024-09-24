@@ -7,11 +7,15 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 
 @Module({
-    controllers:[UserController],
-    providers:[UserService, JwtStrategy],
-    imports:[PrismaModule, PassportModule, JwtModule.register({
-        secret: process.env.SECRET_KEY,
-        signOptions: {expiresIn: '24h'}
-    })]
+  controllers: [UserController],
+  providers: [UserService, JwtStrategy],
+  imports: [
+    PrismaModule,
+    PassportModule,
+    JwtModule.register({
+      secret: process.env.SECRET_KEY,
+      signOptions: { expiresIn: '24h' },
+    }),
+  ],
 })
 export class UserModule {}

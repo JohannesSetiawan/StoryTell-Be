@@ -1,121 +1,124 @@
-import { Injectable, Inject } from "@nestjs/common";
-import { PrismaService } from "../prisma/prisma.service";
+import { Injectable, Inject } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { StoryDto, Story } from './story.dto';
 import { AuthorizationError } from '../Exceptions/AuthorizationError';
-import { NotFoundError } from "../Exceptions/NotFoundError";
+import { NotFoundError } from '../Exceptions/NotFoundError';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
 @Injectable()
-export class StoryService{
-    constructor(private prisma: PrismaService,
-                @Inject(CACHE_MANAGER) private cacheService: Cache,
-    ) {}
+export class StoryService {
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheService: Cache,
+  ) {}
 
-    async createStory(data: StoryDto){
-        
-        const newStory = await this.prisma.story.create({
-            data, 
-        })
+  async createStory(data: StoryDto) {
+    const newStory = await this.prisma.story.create({
+      data,
+    });
 
-        return newStory
+    return newStory;
+  }
+
+  async getAllStories() {
+    const stories = await this.prisma.story.findMany({
+      where: { isprivate: false },
+      include: {
+        author: {
+          select: {
+            username: true,
+          },
+        },
+      },
+    });
+    return stories;
+  }
+
+  async getSpecificStory(id: string) {
+    const cachedStoryData = await this.cacheService.get<Story>(
+      'story-' + id.toString(),
+    );
+
+    if (cachedStoryData) {
+      return cachedStoryData;
     }
 
-    async getAllStories(){
-        const stories = await this.prisma.story.findMany({
-            where: {isprivate: false},
-            include: {
-                author: {
-                  select: {
-                    username: true,
-                  },
-                },
-              },
-        })
-        return stories
+    const story = await this.prisma.story.findUnique({
+      where: { id: id },
+      include: {
+        chapters: {
+          orderBy: {
+            order: 'asc',
+          },
+        },
+        storyComments: {
+          include: { author: { select: { username: true } } },
+          orderBy: { dateCreated: 'asc' },
+        },
+      },
+    });
+
+    if (!story) {
+      throw new NotFoundError('Story not found!');
+    }
+    await this.cacheService.set('story-' + id.toString(), story);
+    return story;
+  }
+
+  async getSpecificUserStories(userId: string) {
+    const stories = await this.prisma.story.findMany({
+      where: { authorId: userId },
+    });
+    return stories;
+  }
+
+  async updateStory(storyId: string, userId: string, data: StoryDto) {
+    const story = await this.prisma.story.findUnique({
+      where: { id: storyId },
+    });
+
+    if (!story) {
+      throw new NotFoundError('Story not found!');
     }
 
-    async getSpecificStory(id: string){
-        const cachedStoryData = await this.cacheService.get<Story>("story-"+id.toString());
-        
-        if(cachedStoryData){
-            return cachedStoryData
-        }
-
-        const story = await this.prisma.story.findUnique({
-            where: {id: id},
-            include:{
-                chapters:{
-                    orderBy:{
-                        order: 'asc'
-                    }
-                },
-                storyComments: {
-                    include:{author:{select:{username:true}}},
-                    orderBy:{dateCreated: 'asc'}
-                }
-            }
-        })
-
-        if (!story){
-            throw new NotFoundError("Story not found!")
-        }
-        await this.cacheService.set("story-"+id.toString(), story);
-        return story
+    if (story.authorId !== userId) {
+      throw new AuthorizationError(
+        "You don't have permission to update this story!",
+      );
     }
 
-    async getSpecificUserStories(userId:string){
-        const stories = await this.prisma.story.findMany({
-            where: {authorId: userId}
-        })
-        return stories
+    const updatedStory = await this.prisma.story.update({
+      data,
+      where: { id: storyId },
+    });
+
+    await this.cacheService.del('story-' + storyId.toString());
+
+    return updatedStory;
+  }
+
+  async deleteStory(storyId: string, userId: string) {
+    const story = await this.prisma.story.findUnique({
+      where: { id: storyId },
+    });
+
+    if (!story) {
+      throw new NotFoundError('Story not found!');
     }
 
-    async updateStory(storyId: string, userId: string, data: StoryDto){
-
-        const story = await this.prisma.story.findUnique({
-            where: {id: storyId}
-        })
-
-        if (!story){
-            throw new NotFoundError("Story not found!")
-        }
-
-        if (story.authorId !== userId){
-            throw new AuthorizationError("You don't have permission to update this story!")
-        }
-
-        const updatedStory = await this.prisma.story.update({
-            data, 
-            where: {id: storyId}
-        })
-
-        await this.cacheService.del("story-"+storyId.toString())
-
-        return updatedStory
+    if (story.authorId !== userId) {
+      throw new AuthorizationError(
+        "You don't have permission to delete this story!",
+      );
     }
 
-    async deleteStory(storyId: string, userId: string){
+    const deletedStory = await this.prisma.story.delete({
+      where: { id: storyId },
+    });
 
-        const story = await this.prisma.story.findUnique({
-            where: {id: storyId}
-        })
+    await this.cacheService.del('story-' + storyId.toString());
 
-        if (!story){
-            throw new NotFoundError("Story not found!")
-        }
-
-        if (story.authorId !== userId){
-            throw new AuthorizationError("You don't have permission to delete this story!")
-        }
-
-        const deletedStory = await this.prisma.story.delete({ 
-            where: {id: storyId}
-        })
-
-        await this.cacheService.del("story-"+storyId.toString())
-
-        return deletedStory
-    }
-
+    return deletedStory;
+  }
 }
