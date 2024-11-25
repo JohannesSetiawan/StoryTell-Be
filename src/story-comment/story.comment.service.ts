@@ -29,6 +29,23 @@ export class StoryCommentService {
     return newStoryComment;
   }
 
+  async createChapterComment(
+    data: StoryCommentDto,
+    userId: string,
+    storyId: string,
+    chapterId: string
+  ) {
+    const { content, parentId } = data;
+
+    const newStoryComment = await this.prisma.storyComment.create({
+      data: { storyId, chapterId, content, parentId, authorId: userId },
+    });
+
+    await this.cacheService.del('story-' + storyId.toString());
+
+    return newStoryComment;
+  }
+
   async getAllStoryCommentForStory(storyId: string) {
     const comments = await this.prisma.storyComment.findMany({
       where: { storyId: storyId },

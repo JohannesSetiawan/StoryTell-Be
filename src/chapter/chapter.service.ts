@@ -60,6 +60,12 @@ export class ChapterService {
 
     const chapter = await this.prisma.chapter.findUnique({
       where: { id: id },
+      include: {
+        chapterComments: {
+          include: { author: { select: { username: true } } },
+          orderBy: { dateCreated: 'desc' },
+        }
+      }
     });
 
     if (!chapter) {

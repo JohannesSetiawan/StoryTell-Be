@@ -49,6 +49,38 @@ export class StoryCommentController {
     }
   }
 
+  @UseGuards(JwtGuard)
+  @Post('/:storyId/:chapterId')
+  async createChapterComment(
+    @Param() param,
+    @Body() createCommentData: StoryCommentDto,
+    @Req() request,
+    @Res() response,
+  ) {
+    try {
+      const authorId = request.user.userId;
+      const storyId = param.storyId;
+      const chapterId = param.chapterId;
+
+      if (!authorId) {
+        throw new AuthenticationError('You are not authenticated yet!');
+      }
+
+      const comment = await this.storyCommentService.createChapterComment(
+        createCommentData,
+        authorId,
+        storyId,
+        chapterId
+      );
+      return response.status(201).json(comment);
+    } catch (error) {
+      if (typeof error.status !== 'undefined') {
+        return response.status(error.status).json({ message: error.message });
+      }
+      return response.status(400).json({ message: error.message });
+    }
+  }
+
   @Get('/:storyId')
   async getAllCommentForStory(@Res() response, @Param() param) {
     try {

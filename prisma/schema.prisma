@@ -43,6 +43,7 @@ model Chapter {
   story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
   storyId       String
   order         Int      @default(1)
+  chapterComments StoryComment[]
 }
 
 model StoryComment {
@@ -51,6 +52,8 @@ model StoryComment {
   authorId    String
   story       Story     @relation(fields: [storyId], references: [id], onDelete: Cascade)
   storyId     String
+  chapter     Chapter?   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  chapterId   String?
   dateCreated DateTime  @default(now())
   content     String
   parentId    String?

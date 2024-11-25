@@ -49,12 +49,13 @@ export class StoryService {
       include: {
         chapters: {
           orderBy: {
-            order: 'asc',
+            order: 'desc',
           },
         },
         storyComments: {
+          where: {chapter: null},
           include: { author: { select: { username: true } } },
-          orderBy: { dateCreated: 'asc' },
+          orderBy: { dateCreated: 'desc' },
         },
       },
     });
