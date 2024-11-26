@@ -20,6 +20,7 @@ model User {
   description String? @default("No description")
   dateCreated DateTime @default(now())
   stories Story[]
+  ratings Rating[]
   storyComments StoryComment[]
 }
 
@@ -33,6 +34,9 @@ model Story {
   chapters      Chapter[]
   isprivate     Boolean @default(false)
   storyComments StoryComment[]
+  ratings       Rating[]
+
+  @@index([authorId]) 
 }
 
 model Chapter {
@@ -44,6 +48,8 @@ model Chapter {
   storyId       String
   order         Int      @default(1)
   chapterComments StoryComment[]
+
+  @@index([storyId])
 }
 
 model StoryComment {
@@ -59,4 +65,20 @@ model StoryComment {
   parentId    String?
   parent      StoryComment?   @relation("ParentChildComment", fields: [parentId], references: [id], onDelete: Cascade)
   childs      StoryComment[]  @relation("ParentChildComment")
+
+  @@index([authorId]) 
+  @@index([storyId])
+}
+
+model Rating {
+  id          String    @default(uuid()) @id
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String
+  story       Story     @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  storyId     String
+  rate        Int       @default(10)
+
+  @@index([authorId]) 
+  @@index([storyId]) 
+  @@unique([storyId, authorId])
 }

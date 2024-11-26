@@ -6,6 +6,7 @@ import { StoryModule } from './story/story.module';
 import { ChapterModule } from './chapter/chapter.module';
 import { StoryCommentModule } from './story-comment/story.comment.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { RatingModule } from './rating/rating.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     StoryModule,
     ChapterModule,
     StoryCommentModule,
+    RatingModule,
     CacheModule.register({ isGlobal: true, ttl: 60000, max: 10 }),
   ],
   controllers: [AppController],
