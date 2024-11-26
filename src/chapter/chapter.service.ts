@@ -1,9 +1,7 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChapterDto } from './chapter.dto';
 import { Chapter } from 'src/story/story.dto';
-import { AuthorizationError } from '../Exceptions/AuthorizationError';
-import { NotFoundError } from '../Exceptions/NotFoundError';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
@@ -22,11 +20,11 @@ export class ChapterService {
     });
 
     if (!story) {
-      throw new NotFoundError('Story not found!');
+      throw new NotFoundException('Story not found!');
     }
 
     if (story.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         "You don't have permission to update this story!",
       );
     }
@@ -69,7 +67,7 @@ export class ChapterService {
     });
 
     if (!chapter) {
-      throw new NotFoundError('Chapter not found!');
+      throw new NotFoundException('Chapter not found!');
     }
 
     await this.cacheService.set('chapter-' + id.toString(), chapter);
@@ -85,11 +83,11 @@ export class ChapterService {
     });
 
     if (!story) {
-      throw new NotFoundError('Story not found!');
+      throw new NotFoundException('Story not found!');
     }
 
     if (story.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         "You don't have permission to update this chapter!",
       );
     }
@@ -99,7 +97,7 @@ export class ChapterService {
     });
 
     if (!chapter) {
-      throw new NotFoundError('Chapter not found!');
+      throw new NotFoundException('Chapter not found!');
     }
 
     const updatedChapter = await this.prisma.chapter.update({
@@ -118,7 +116,7 @@ export class ChapterService {
     });
 
     if (!chapter) {
-      throw new NotFoundError('Chapter not found!');
+      throw new NotFoundException('Chapter not found!');
     }
 
     const story = await this.prisma.story.findFirst({
@@ -126,17 +124,17 @@ export class ChapterService {
     });
 
     if (!story) {
-      throw new NotFoundError('Story not found!');
+      throw new NotFoundException('Story not found!');
     }
 
     if (story.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         "You don't have permission to update this story!",
       );
     }
 
     if (!story) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         "You don't have permission to delete this chapter!",
       );
     }

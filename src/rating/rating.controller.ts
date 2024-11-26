@@ -10,11 +10,11 @@ import {
   Delete,
   Param,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtGuard } from 'src/user/jwt.guard';
 import { RatingService } from './rating.service';
 import { RatingDto } from './rating.dto';
-import { AuthenticationError } from '../Exceptions/AuthenticationError';
 
 @Controller('rating')
 export class RatingController {
@@ -28,12 +28,11 @@ export class RatingController {
     @Res() response,
     @Param() param
   ) {
-    try {
       const authorId = request.user.userId;
       const storyId = param.storyId
 
       if (!authorId) {
-        throw new AuthenticationError('You are not authenticated yet!');
+        throw new UnauthorizedException('You are not authenticated yet!');
       }
 
       const chapter = await this.ratingService.createRating(
@@ -42,12 +41,6 @@ export class RatingController {
         storyId
       );
       return response.status(201).json(chapter);
-    } catch (error) {
-      if (typeof error.status !== 'undefined') {
-        return response.status(error.status).json({ message: error.message });
-      }
-      return response.status(400).json({ message: error.message });
-    }
   }
 
   @Get('/story/:storyId')
@@ -55,30 +48,23 @@ export class RatingController {
     @Res() response,
     @Param() param
   ) {
-    try {
       const storyId = param.storyId
       const chapters = await this.ratingService.getAllRatingForStory(storyId);
       return response.status(200).json(chapters);
-    } catch (error) {
-      return response.status(400).json({ message: error.message });
-    }
   }
 
   @UseGuards(JwtGuard)
   @Get('/:storyId')
   async getSpecificUserRatingForStory(@Param() param, @Req() request, @Res() response) {
-    try {
       const authorId = request.user.userId;
       const storyId = param.storyId
 
       if (!authorId) {
-        throw new AuthenticationError('You are not authenticated yet!');
+        throw new UnauthorizedException('You are not authenticated yet!');
       }
       const chapter = await this.ratingService.getUserRatingForStory(storyId, authorId);
       return response.status(200).json(chapter);
-    } catch (error) {
-      return response.status(400).json({ message: error.message });
-    }
+  
   }
 
   @UseGuards(JwtGuard)
@@ -89,7 +75,6 @@ export class RatingController {
     @Req() request,
     @Res() response,
   ) {
-    try {
       const authorId = request.user.userId;
       const updatedChapter = await this.ratingService.updateRating(
         param.id,
@@ -97,26 +82,15 @@ export class RatingController {
         data,
       );
       return response.status(200).json(updatedChapter);
-    } catch (error) {
-      if (typeof error.status !== 'undefined') {
-        return response.status(error.status).json({ message: error.message });
-      }
-      return response.status(400).json({ message: error.message });
-    }
+  
   }
 
   @UseGuards(JwtGuard)
   @Delete('/:id')
   async deleteChapter(@Param() param, @Req() request, @Res() response) {
-    try {
       const authorId = request.user.userId;
       await this.ratingService.deleteRating(param.id, authorId);
       return response.status(200).json({ message: 'Deleted successfully!' });
-    } catch (error) {
-      if (typeof error.status !== 'undefined') {
-        return response.status(error.status).json({ message: error.message });
-      }
-      return response.status(400).json({ message: error.message });
-    }
+  
   }
 }

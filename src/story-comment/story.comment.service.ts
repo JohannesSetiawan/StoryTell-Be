@@ -1,10 +1,8 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoryCommentDto } from './story.comment.dto';
-import { AuthorizationError } from '../Exceptions/AuthorizationError';
-import { NotFoundError } from '../Exceptions/NotFoundError';
 
 @Injectable()
 export class StoryCommentService {
@@ -75,11 +73,11 @@ export class StoryCommentService {
     });
 
     if (!comment) {
-      throw new NotFoundError('Comment not found!');
+      throw new NotFoundException('Comment not found!');
     }
 
     if (comment.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         'You are not allowed to changes this comment!',
       );
     }
@@ -100,11 +98,11 @@ export class StoryCommentService {
     });
 
     if (!comment) {
-      throw new NotFoundError('Comment not found!');
+      throw new NotFoundException('Comment not found!');
     }
 
     if (comment.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         'You are not allowed to changes this comment!',
       );
     }

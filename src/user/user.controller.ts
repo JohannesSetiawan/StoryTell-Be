@@ -7,11 +7,13 @@ import {
   Req,
   Res,
   Param,
+  Put
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserData, UserCreationData, UserLoginData } from './user.dto';
 import { JwtGuard } from './jwt.guard';
 import { Response } from 'express';
+import { Prisma } from '@prisma/client';
 
 @Controller('user')
 export class UserController {
@@ -50,12 +52,12 @@ export class UserController {
   }
 
   @UseGuards(JwtGuard)
-  @Get('/update-user-admin/:userId')
-  async changeProfile(@Body() userData: UpdateUserData, @Req() request, @Res() response, @Param() param) {
+  @Put('/:userId')
+  async changeProfile(@Body() userData: Prisma.UserUpdateInput, @Req() request, @Res() response, @Param() param) {
     try {
       const id = param.userId;
-      const updatingUser = request.user.userId
-      const responseData = await this.userService.updateUser({where: id, data: userData}, updatingUser);
+      const updatingUser = request.user
+      const responseData = await this.userService.updateUser({where: {id}, data: userData}, updatingUser);
       return response.status(200).json(responseData);
     } catch (error) {
       return response.status(400).json({ message: error.message });

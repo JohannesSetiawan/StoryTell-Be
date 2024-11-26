@@ -1,8 +1,6 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoryDto, Story } from './story.dto';
-import { AuthorizationError } from '../Exceptions/AuthorizationError';
-import { NotFoundError } from '../Exceptions/NotFoundError';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
@@ -61,7 +59,7 @@ export class StoryService {
     });
 
     if (!story) {
-      throw new NotFoundError('Story not found!');
+      throw new NotFoundException('Story not found!');
     }
     await this.cacheService.set('story-' + id.toString(), story);
     return story;
@@ -80,11 +78,11 @@ export class StoryService {
     });
 
     if (!story) {
-      throw new NotFoundError('Story not found!');
+      throw new NotFoundException('Story not found!');
     }
 
     if (story.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         "You don't have permission to update this story!",
       );
     }
@@ -105,11 +103,11 @@ export class StoryService {
     });
 
     if (!story) {
-      throw new NotFoundError('Story not found!');
+      throw new NotFoundException('Story not found!');
     }
 
     if (story.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         "You don't have permission to delete this story!",
       );
     }

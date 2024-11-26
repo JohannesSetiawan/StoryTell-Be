@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { User, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { sign } from 'jsonwebtoken';
-import { UserLoginData } from './user.dto';
+import { UserLoginData, UserTokenPayload } from './user.dto';
 
 @Injectable()
 export class UserService {
@@ -31,7 +31,7 @@ export class UserService {
     const is_password_matched = await bcrypt.compare(password, hashed_password);
     if (is_password_matched) {
       const token = sign(
-        { username: user.username, id: user.id },
+        { username: user.username, id: user.id, isAdmin: user.isAdmin },
         process.env.SECRET_KEY,
         { expiresIn: '30 days' },
       );
@@ -57,7 +57,7 @@ export class UserService {
 
     const user = await newUser;
     const token = sign(
-      { username: user.username, id: user.id },
+      { username: user.username, id: user.id, isAdmin: user.isAdmin },
       process.env.SECRET_KEY,
       { expiresIn: '30 days' },
     );
@@ -67,14 +67,10 @@ export class UserService {
   async updateUser(params: {
     where: Prisma.UserWhereUniqueInput;
     data: Prisma.UserUpdateInput;
-  }, updatingUser: string): Promise<User> {
+  }, updatingUser: UserTokenPayload) {
     const { where, data } = params;
     
-    const user = await this.prisma.user.findUnique({
-      where: { id: updatingUser },
-    });
-
-    if(!user.isAdmin || !(user.id === where.id)){
+    if(!updatingUser.isAdmin && !(updatingUser.userId === where.id)){
       throw new ForbiddenException("You don't have access to do this action!")
     }
 
@@ -83,7 +79,6 @@ export class UserService {
       data.password = await bcrypt.hash(data.password, salt);
     }
     
-
     return this.prisma.user.update({
       data,
       where,

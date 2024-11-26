@@ -1,9 +1,6 @@
-import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatingDto } from './rating.dto';
-import { Chapter } from 'src/story/story.dto';
-import { AuthorizationError } from '../Exceptions/AuthorizationError';
-import { NotFoundError } from '../Exceptions/NotFoundError';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 
@@ -71,7 +68,7 @@ export class RatingService {
     });
 
     if (!rating) {
-      throw new NotFoundError('Rating not found!');
+      throw new NotFoundException('Rating not found!');
     }
     return rating;
   }
@@ -83,11 +80,11 @@ export class RatingService {
     });
 
     if (!rating) {
-      throw new NotFoundError('Story not found!');
+      throw new NotFoundException('Story not found!');
     }
 
     if (rating.authorId !== userId) {
-      throw new AuthorizationError(
+      throw new ForbiddenException(
         "You don't have permission to update this rating!",
       );
     }
@@ -110,7 +107,7 @@ export class RatingService {
     });
 
     if (!rating) {
-      throw new NotFoundError('Rating not found!');
+      throw new NotFoundException('Rating not found!');
     }
 
     const deletedRating = await this.prisma.rating.delete({
