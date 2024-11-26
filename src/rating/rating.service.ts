@@ -59,7 +59,7 @@ export class RatingService {
       },
     });
 
-    return groupedRatings;
+    return groupedRatings[0];
   }
 
   async getUserRatingForStory(storyId: string, userId: string) {
