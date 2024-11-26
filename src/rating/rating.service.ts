@@ -21,6 +21,10 @@ export class RatingService {
       throw new NotFoundException('Story not found!');
     }
 
+    if(story.authorId === userId){
+      throw new BadRequestException("You can't rate your own stories!")
+    }
+
     const rating = await this.prisma.rating.findFirst({
       where: { storyId, authorId: userId },
     });
@@ -59,7 +63,23 @@ export class RatingService {
       },
     });
 
-    return groupedRatings[0];
+    if(groupedRatings.length === 0){
+      return {
+        _count: {
+            rate: 0
+        },
+        _avg: {
+            rate: 0
+        },
+        _sum: {
+            rate: 0
+        }
+      }
+    } else {
+      return groupedRatings[0];
+    }
+
+    
   }
 
   async getUserRatingForStory(storyId: string, userId: string) {
@@ -68,7 +88,13 @@ export class RatingService {
     });
 
     if (!rating) {
-      throw new NotFoundException('Rating not found!');
+      return {
+        id: null,
+        authorId: null,
+        storyId: null,
+        rate: null,
+        message: "You have not rate this story yet."
+    }
     }
     return rating;
   }
