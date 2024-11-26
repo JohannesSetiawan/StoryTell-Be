@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -67,8 +67,23 @@ export class UserService {
   async updateUser(params: {
     where: Prisma.UserWhereUniqueInput;
     data: Prisma.UserUpdateInput;
-  }): Promise<User> {
+  }, updatingUser: string): Promise<User> {
     const { where, data } = params;
+    
+    const user = await this.prisma.user.findUnique({
+      where: { id: updatingUser },
+    });
+
+    if(!user.isAdmin || !(user.id === where.id)){
+      throw new ForbiddenException("You don't have access to do this action!")
+    }
+
+    if(data.password){
+      const salt = await bcrypt.genSalt();
+      data.password = await bcrypt.hash(data.password, salt);
+    }
+    
+
     return this.prisma.user.update({
       data,
       where,

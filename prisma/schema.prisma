@@ -19,6 +19,7 @@ model User {
   password String
   description String? @default("No description")
   dateCreated DateTime @default(now())
+  isAdmin  Boolean? @default(false)
   stories Story[]
   ratings Rating[]
   storyComments StoryComment[]
