@@ -47,7 +47,7 @@ export class StoryService {
       include: {
         chapters: {
           orderBy: {
-            order: 'desc',
+            order: 'asc',
           },
         },
         storyComments: {
