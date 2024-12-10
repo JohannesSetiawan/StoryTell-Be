@@ -11,6 +11,9 @@ export class ReadHistoryService {
     const histories = await this.prisma.readHistory.findMany({
         where: {
             userId
+        },
+        orderBy:{
+            date: "desc"
         }
     })
     return histories;
