@@ -47,12 +47,13 @@ export class ChapterService {
     return chapters;
   }
 
-  async getSpecificChapter(id: string) {
+  async getSpecificChapter(id: string, readUserId: string) {
     const cachedChapterData = await this.cacheService.get<Chapter>(
       'chapter-' + id.toString(),
     );
 
     if (cachedChapterData) {
+      await this.createReadHistory(readUserId, cachedChapterData.storyId, cachedChapterData.id)
       return cachedChapterData;
     }
 
@@ -69,6 +70,8 @@ export class ChapterService {
     if (!chapter) {
       throw new NotFoundException('Chapter not found!');
     }
+
+    await this.createReadHistory(readUserId, chapter.storyId, chapter.id)
 
     await this.cacheService.set('chapter-' + id.toString(), chapter);
 
@@ -146,5 +149,21 @@ export class ChapterService {
     await this.cacheService.del('chapter-' + chapterId.toString());
 
     return deletedChapter;
+  }
+
+  private async createReadHistory(readUserId: string, storyId: string, chapterId: string) {
+    await this.prisma.readHistory.upsert({
+      create: {
+        userId: readUserId,
+        storyId,
+        chapterId
+      },
+      update: {
+        date: new Date()
+      },
+      where: {
+        storyId_userId: { userId: readUserId, storyId }
+      }
+    });
   }
 }

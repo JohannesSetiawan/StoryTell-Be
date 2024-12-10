@@ -8,6 +8,7 @@ import { StoryCommentModule } from './story-comment/story.comment.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { RatingModule } from './rating/rating.module';
 import { AdminModule } from './admin-only/admin.module';
+import { HistoryModule } from './read-history/read.history.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AdminModule } from './admin-only/admin.module';
     StoryCommentModule,
     RatingModule,
     AdminModule,
+    HistoryModule,
     CacheModule.register({ isGlobal: true, ttl: 60000, max: 10 }),
   ],
   controllers: [AppController],

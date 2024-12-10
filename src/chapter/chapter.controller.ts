@@ -40,6 +40,7 @@ export class ChapterController {
     return response.status(201).json(chapter);
   }
 
+  @UseGuards(JwtGuard)
   @Get('')
   async getAllChaptersForStory(
     @Res() response,
@@ -49,10 +50,12 @@ export class ChapterController {
       return response.status(200).json(chapters);
   }
 
+  @UseGuards(JwtGuard)
   @Get('/:id')
-  async getChapter(@Param() param, @Res() response) {
-    const chapter = await this.chapterService.getSpecificChapter(param.id);
-      return response.status(200).json(chapter);
+  async getChapter(@Param() param, @Req() request, @Res() response) {
+    const readUserId = request.user.userId;
+    const chapter = await this.chapterService.getSpecificChapter(param.id, readUserId);
+    return response.status(200).json(chapter);
   }
 
   @UseGuards(JwtGuard)

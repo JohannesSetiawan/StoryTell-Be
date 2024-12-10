@@ -23,6 +23,7 @@ model User {
   stories Story[]
   ratings Rating[]
   storyComments StoryComment[]
+  readHistory ReadHistory[]
 }
 
 model Story {
@@ -36,6 +37,7 @@ model Story {
   isprivate     Boolean @default(false)
   storyComments StoryComment[]
   ratings       Rating[]
+  storyReadHistory  ReadHistory[]
 
   @@index([authorId]) 
 }
@@ -49,6 +51,7 @@ model Chapter {
   storyId       String
   order         Int      @default(1)
   chapterComments StoryComment[]
+  chapterReadHistory  ReadHistory[]
 
   @@index([storyId])
 }
@@ -82,4 +85,17 @@ model Rating {
   @@index([authorId]) 
   @@index([storyId]) 
   @@unique([storyId, authorId])
+}
+
+model ReadHistory {
+  id          String        @default(uuid()) @id
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  story       Story         @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  storyId     String
+  chapter     Chapter?      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  chapterId   String?
+  date DateTime  @default(now())
+
+  @@unique([storyId, userId])
 }

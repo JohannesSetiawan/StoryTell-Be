@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StoryDto, Story } from './story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -33,12 +33,14 @@ export class StoryService {
     return stories;
   }
 
-  async getSpecificStory(id: string) {
+  async getSpecificStory(id: string, readUserId: string) {
     const cachedStoryData = await this.cacheService.get<Story>(
       'story-' + id.toString(),
     );
 
     if (cachedStoryData) {
+      this.checkIsPrivateStory(cachedStoryData, readUserId);
+      await this.createReadHistory(readUserId, id);
       return cachedStoryData;
     }
 
@@ -61,6 +63,11 @@ export class StoryService {
     if (!story) {
       throw new NotFoundException('Story not found!');
     }
+
+    this.checkIsPrivateStory(story, readUserId);
+
+    await this.createReadHistory(readUserId, id);
+
     await this.cacheService.set('story-' + id.toString(), story);
     return story;
   }
@@ -119,5 +126,29 @@ export class StoryService {
     await this.cacheService.del('story-' + storyId.toString());
 
     return deletedStory;
+  }
+
+  private async createReadHistory(readUserId: string, id: string) {
+    await this.prisma.readHistory.upsert({
+      create: {
+        userId: readUserId,
+        storyId: id
+      },
+      update: {
+        date: new Date()
+      },
+      where: {
+        storyId_userId: { userId: readUserId, storyId: id }
+      }
+    });
+  }
+
+  private checkIsPrivateStory(story: Story, readUserId: string) {
+    if (story.isprivate) {
+      const authorId = readUserId;
+      if (authorId !== story.authorId) {
+        throw new UnauthorizedException("You can't access this private story!");
+      }
+    }
   }
 }

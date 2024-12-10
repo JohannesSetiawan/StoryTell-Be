@@ -44,13 +44,8 @@ export class StoryController {
   @UseGuards(JwtGuard)
   @Get('/:id')
   async getStory(@Param() param, @Req() request, @Res() response) {
-      const story = await this.storyService.getSpecificStory(param.id);
-      if (story.isprivate) {
-        const authorId = request.user.userId;
-        if (authorId !== story.authorId) {
-          throw new UnauthorizedException("You can't access this private story!");
-        }
-      }
+      const readUserId = request.user.userId
+      const story = await this.storyService.getSpecificStory(param.id, readUserId);
       return response.status(200).json(story);
   }
 
