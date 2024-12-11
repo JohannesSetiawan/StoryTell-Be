@@ -12,6 +12,13 @@ export class ReadHistoryService {
         where: {
             userId
         },
+        include: {
+          story:{
+            select:{
+              title: true,
+            }
+          }
+        },
         orderBy:{
             date: "desc"
         }
@@ -23,7 +30,14 @@ export class ReadHistoryService {
     const history = await this.prisma.readHistory.findUnique({
         where: {
             storyId_userId: {userId, storyId}
-        }
+        },
+        include: {
+          story:{
+            select:{
+              title: true,
+            }
+          }
+        },
     })
     return history;
   }
