@@ -179,7 +179,7 @@ export class ChapterService {
       }
     })
 
-    if(story.authorId != readUserId){
+    if(story && story.authorId != readUserId){
       throw new ForbiddenException("You don't have permisson to read this chapter!")
     }
   }
