@@ -36,6 +36,12 @@ export class ReadHistoryService {
             select:{
               title: true,
             }
+          },
+          chapter: {
+            select: {
+              title: true,
+              order: true
+            }
           }
         },
     })

@@ -74,6 +74,8 @@ export class ChapterService {
 
     await this.createReadHistory(readUserId, chapter.storyId, chapter.id)
 
+    await this.checkIsPrivateStory(readUserId, chapter.storyId)
+
     await this.cacheService.set('chapter-' + id.toString(), chapter);
 
     return chapter;
@@ -168,5 +170,17 @@ export class ChapterService {
         storyId_userId: { userId: readUserId, storyId }
       }
     });
+  }
+
+  private async checkIsPrivateStory(readUserId: string, storyId: string){
+    const story = await this.prisma.story.findUnique({
+      where:{
+        id: storyId, isprivate: true
+      }
+    })
+
+    if(story.authorId != readUserId){
+      throw new ForbiddenException("You don't have permisson to read this chapter!")
+    }
   }
 }
