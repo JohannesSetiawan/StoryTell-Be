@@ -161,6 +161,7 @@ export class ChapterService {
         date: getDateInWIB(new Date())
       },
       update: {
+        chapterId,
         date: getDateInWIB(new Date())
       },
       where: {
