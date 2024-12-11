@@ -4,7 +4,7 @@ import { ChapterDto } from './chapter.dto';
 import { Chapter } from 'src/story/story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { getDateInWIB } from 'src/utils/date';
+import { getDateInWIB } from 'static/utils/date';
 
 @Injectable()
 export class ChapterService {

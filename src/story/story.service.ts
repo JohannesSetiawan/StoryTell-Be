@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StoryDto, Story } from './story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { getDateInWIB } from 'src/utils/date';
+import { getDateInWIB } from 'static/utils/date';
 
 @Injectable()
 export class StoryService {
