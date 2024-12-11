@@ -4,6 +4,7 @@ import { ChapterDto } from './chapter.dto';
 import { Chapter } from 'src/story/story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { getDateInWIB } from 'src/utils/date';
 
 @Injectable()
 export class ChapterService {
@@ -156,10 +157,11 @@ export class ChapterService {
       create: {
         userId: readUserId,
         storyId,
-        chapterId
+        chapterId,
+        date: getDateInWIB(new Date())
       },
       update: {
-        date: new Date()
+        date: getDateInWIB(new Date())
       },
       where: {
         storyId_userId: { userId: readUserId, storyId }

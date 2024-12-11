@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StoryDto, Story } from './story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { getDateInWIB } from 'src/utils/date';
 
 @Injectable()
 export class StoryService {
@@ -132,10 +133,11 @@ export class StoryService {
     await this.prisma.readHistory.upsert({
       create: {
         userId: readUserId,
-        storyId: id
+        storyId: id,
+        date: getDateInWIB(new Date())
       },
       update: {
-        date: new Date()
+        date: getDateInWIB(new Date())
       },
       where: {
         storyId_userId: { userId: readUserId, storyId: id }

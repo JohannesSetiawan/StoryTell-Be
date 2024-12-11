@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -17,5 +17,14 @@ export class ReadHistoryService {
         }
     })
     return histories;
+  }
+
+  async getHistoriesForSpecificStory(userId: string, storyId: string){
+    const history = await this.prisma.readHistory.findUnique({
+        where: {
+            storyId_userId: {userId, storyId}
+        }
+    })
+    return history;
   }
 }
