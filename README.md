@@ -8,6 +8,11 @@
 $ npm install
 ```
 
+## Generate Prisma Client
+```
+$ npx prisma generate
+```
+
 ## Running the app
 
 ```bash
