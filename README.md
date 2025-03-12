@@ -54,4 +54,4 @@ $ npm run start:prod
 5. Ratings
 
 ### Deployment with Docker
-There's already a Dockerfile for deployments with Docker. Can be used with docker compose. Docker images will be available later.
+There's already a Dockerfile for deployments with Docker. Can be used with docker compose. Docker images will be available later with database. Create .env file first before running ```docker build```
