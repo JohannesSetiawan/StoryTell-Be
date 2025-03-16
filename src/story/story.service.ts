@@ -53,6 +53,11 @@ export class StoryService {
             order: 'asc',
           },
         },
+        author: {
+          select: {
+            username: true,
+          },
+        },
         storyComments: {
           where: {chapter: null},
           include: { author: { select: { username: true } } },
