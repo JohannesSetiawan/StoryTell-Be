@@ -9,6 +9,7 @@ import {
   Put,
   Delete,
   Param,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { StoryService } from './story.service';
@@ -36,8 +37,19 @@ export class StoryController {
   }
 
   @Get('')
-  async getAllStories(@Res() response) {
-      const stories = await this.storyService.getAllStories();
+  async getAllStories(
+    @Query('page') page: number, 
+    @Query('perPage') perPage: number,
+    @Query('search') search: string, 
+    @Query('sort') sort: string,  
+    @Res() response) {
+      const currPage = page > 0 ? page : 1;
+      const currPerPage = perPage > 0 ? perPage : 10;
+      const stories = await this.storyService.getAllStories(
+        currPage, 
+        currPerPage,
+        search,
+        sort as 'newest' | 'oldest' | 'title-asc' | 'title-desc');
       return response.status(200).json(stories);
   }
 
@@ -50,9 +62,22 @@ export class StoryController {
   }
 
   @Get('/user/:userId')
-  async getUserSpecificStory(@Res() response, @Param() param) {
+  async getUserSpecificStory(
+    @Query('page') page: number, 
+    @Query('perPage') perPage: number, 
+    @Query('search') search: string, 
+    @Query('sort') sort: string, 
+    @Res() response, 
+    @Param() param
+  ) {
+      const currPage = page > 0 ? page : 1;
+      const currPerPage = perPage > 0 ? perPage : 10;
       const story = await this.storyService.getSpecificUserStories(
         param.userId,
+        currPage,
+        currPerPage,
+        search,
+        sort as 'newest' | 'oldest' | 'title-asc' | 'title-desc'
       );
       return response.status(200).json(story);
   }
