@@ -40,7 +40,7 @@ export class UserService {
         process.env.SECRET_KEY,
         { expiresIn: '30 days' },
       );
-      return { token: token };
+      return { token: token, user: user.id };
     } else {
       throw new Error("Username and password doesn't match!");
     }
@@ -69,7 +69,8 @@ export class UserService {
       process.env.SECRET_KEY,
       { expiresIn: '30 days' },
     );
-    return { token: token };
+    return { 
+      token: token, user: user.id };
   }
 
   async updateUser(userId: string, data: UpdateUserData, updatingUser: UserTokenPayload): Promise<UserResponseDto> {

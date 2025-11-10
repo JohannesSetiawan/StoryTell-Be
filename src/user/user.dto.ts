@@ -14,6 +14,8 @@ export class LoginDto {
 export class LoginResponseDto {
   @ApiProperty()
   token: string;
+  @ApiProperty()
+  user: string;
 }
 
 export class UserResponseDto {

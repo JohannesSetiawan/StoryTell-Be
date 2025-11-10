@@ -11,7 +11,7 @@ export class StoryDto {
   @ApiProperty({ required: false })
   description: string;
   @ApiProperty({ default: false })
-  isPrivate: boolean;
+  isprivate: boolean;
 };
 
 export class Story {

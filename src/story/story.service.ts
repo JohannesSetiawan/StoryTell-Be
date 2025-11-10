@@ -27,13 +27,13 @@ export class StoryService {
   ) {}
 
   async createStory(data: StoryDto, authorId: string): Promise<Story> {
-    const { title, description, isPrivate } = data;
+    const { title, description, isprivate } = data;
     const query = `
       INSERT INTO "Story" (title, description, "authorId", isprivate)
       VALUES ($1, $2, $3, $4)
       RETURNING *;
     `;
-    const values = [title, description, authorId, isPrivate];
+    const values = [title, description, authorId, isprivate];
     const result = await this.pool.query(query, values);
     return result.rows[0];
   }
@@ -231,14 +231,14 @@ export class StoryService {
       );
     }
 
-    const { title, description, isPrivate } = data;
+    const { title, description, isprivate } = data;
     const query = `
       UPDATE "Story"
       SET title = $1, description = $2, isprivate = $3
       WHERE id = $4
       RETURNING *;
     `;
-    const values = [title, description, isPrivate, storyId];
+    const values = [title, description, isprivate, storyId];
     const updatedResult = await this.pool.query(query, values);
 
     await this.cacheService.del('story-' + storyId.toString());

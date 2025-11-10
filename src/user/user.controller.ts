@@ -58,7 +58,6 @@ export class UserController {
     try {
       const userId = request.user.id;
       if (!userId) {
-        console.log(request)
         throw new Error('User ID not found in request');
       }
       const responseData = await this.userService.user(userId);
@@ -79,7 +78,6 @@ export class UserController {
     try {
       const id = request.user.id;
       const updatingUser = request.user
-      console.log('Updated user ID:', id, 'by', updatingUser);
       const responseData = await this.userService.updateUser(id, userData, updatingUser);
       return response.status(200).json(responseData);
     } catch (error) {

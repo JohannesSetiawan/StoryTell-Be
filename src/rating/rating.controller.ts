@@ -38,7 +38,7 @@ export class RatingController {
   ) {
       const authorId = request.user.id;
       const storyId = param.storyId
-
+      
       if (!authorId) {
         throw new UnauthorizedException('You are not authenticated yet!');
       }
