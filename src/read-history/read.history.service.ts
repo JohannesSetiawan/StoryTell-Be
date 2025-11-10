@@ -1,50 +1,67 @@
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
+import { ReadHistoryResponseDto, SpecificReadHistoryResponseDto } from './read.history.dto';
 
 @Injectable()
 export class ReadHistoryService {
   constructor(
-    private prisma: PrismaService,
+    @Inject('DATABASE_POOL') private pool: Pool,
   ) {}
 
-  async getHistories(userId: string) {
-    const histories = await this.prisma.readHistory.findMany({
-        where: {
-            userId
-        },
-        include: {
-          story:{
-            select:{
-              title: true,
-            }
-          }
-        },
-        orderBy:{
-            date: "desc"
-        }
-    })
-    return histories;
+  async getHistories(userId: string): Promise<ReadHistoryResponseDto[]> {
+    const query = `
+      SELECT 
+        rh.id,
+        rh."userId",
+        rh."storyId",
+        rh."chapterId",
+        rh.date,
+        s.title as "storyTitle"
+      FROM "ReadHistory" rh
+      LEFT JOIN "Story" s ON rh."storyId" = s.id
+      WHERE rh."userId" = $1
+      ORDER BY rh.date DESC;
+    `;
+    const result = await this.pool.query(query, [userId]);
+    return result.rows.map(history => ({
+      id: history.id,
+      userId: history.userId,
+      storyId: history.storyId,
+      chapterId: history.chapterId,
+      date: history.date,
+      story: { title: history.storyTitle }
+    }));
   }
 
-  async getHistoriesForSpecificStory(userId: string, storyId: string){
-    const history = await this.prisma.readHistory.findUnique({
-        where: {
-            storyId_userId: {userId, storyId}
-        },
-        include: {
-          story:{
-            select:{
-              title: true,
-            }
-          },
-          chapter: {
-            select: {
-              title: true,
-              order: true
-            }
-          }
-        },
-    })
-    return history;
+  async getHistoriesForSpecificStory(userId: string, storyId: string): Promise<SpecificReadHistoryResponseDto> {
+    const query = `
+      SELECT 
+        rh.id,
+        rh."userId",
+        rh."storyId",
+        rh."chapterId",
+        rh.date,
+        s.title as "storyTitle",
+        c.title as "chapterTitle",
+        c.order as "chapterOrder"
+      FROM "ReadHistory" rh
+      LEFT JOIN "Story" s ON rh."storyId" = s.id
+      LEFT JOIN "Chapter" c ON rh."chapterId" = c.id
+      WHERE rh."userId" = $1 AND rh."storyId" = $2;
+    `;
+    const result = await this.pool.query(query, [userId, storyId]);
+    const history = result.rows[0];
+    if (history) {
+      return {
+        id: history.id,
+        userId: history.userId,
+        storyId: history.storyId,
+        chapterId: history.chapterId,
+        date: history.date,
+        story: { title: history.storyTitle },
+        chapter: { title: history.chapterTitle, order: history.chapterOrder }
+      };
+    }
+    return null;
   }
 }

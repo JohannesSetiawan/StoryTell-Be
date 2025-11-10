@@ -13,21 +13,29 @@ import {
 } from '@nestjs/common';
 import { JwtGuard } from 'src/user/jwt.guard';
 import { StoryCommentService } from './story.comment.service';
-import { StoryCommentDto } from './story.comment.dto';
+import { StoryCommentDto, StoryComment } from './story.comment.dto';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('story-comment')
 @Controller('storyComment')
 export class StoryCommentController {
   constructor(private readonly storyCommentService: StoryCommentService) {}
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Post('/:storyId')
+  @ApiOperation({ summary: 'Create a new comment for a story' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story to comment on', type: String })
+  @ApiBody({ type: StoryCommentDto })
+  @ApiResponse({ status: 201, description: 'The comment has been successfully created.', type: StoryComment })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async createStoryComment(
     @Param() param,
     @Body() createCommentData: StoryCommentDto,
     @Req() request,
     @Res() response,
   ) {
-      const authorId = request.user.userId;
+      const authorId = request.user.id;
       const storyId = param.storyId;
 
       if (!authorId) {
@@ -43,14 +51,21 @@ export class StoryCommentController {
   }
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Post('/:storyId/:chapterId')
+  @ApiOperation({ summary: 'Create a new comment for a chapter' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
+  @ApiParam({ name: 'chapterId', description: 'The ID of the chapter to comment on', type: String })
+  @ApiBody({ type: StoryCommentDto })
+  @ApiResponse({ status: 201, description: 'The comment has been successfully created.', type: StoryComment })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async createChapterComment(
     @Param() param,
     @Body() createCommentData: StoryCommentDto,
     @Req() request,
     @Res() response,
   ) {
-      const authorId = request.user.userId;
+      const authorId = request.user.id;
       const storyId = param.storyId;
       const chapterId = param.chapterId;
 
@@ -68,6 +83,9 @@ export class StoryCommentController {
   }
 
   @Get('/:storyId')
+  @ApiOperation({ summary: 'Get all comments for a story' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
+  @ApiResponse({ status: 200, description: 'The comments have been successfully retrieved.', type: [StoryComment] })
   async getAllCommentForStory(@Res() response, @Param() param) {
       const storyId = param.storyId;
       const comments =
@@ -77,6 +95,10 @@ export class StoryCommentController {
   }
 
   @Get('/:storyId/:id')
+  @ApiOperation({ summary: 'Get a specific comment' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
+  @ApiParam({ name: 'id', description: 'The ID of the comment', type: String })
+  @ApiResponse({ status: 200, description: 'The comment has been successfully retrieved.', type: StoryComment })
   async getSpecificComment(@Param() param, @Res() response) {
       const chapter = await this.storyCommentService.getSpecificCommentForStory(
         param.id,
@@ -86,14 +108,21 @@ export class StoryCommentController {
   }
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Put('/:storyId/:id')
+  @ApiOperation({ summary: 'Update a comment' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
+  @ApiParam({ name: 'id', description: 'The ID of the comment to update', type: String })
+  @ApiBody({ type: StoryCommentDto })
+  @ApiResponse({ status: 200, description: 'The comment has been successfully updated.', type: StoryComment })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async updateComment(
     @Param() param,
     @Body() data: StoryCommentDto,
     @Req() request,
     @Res() response,
   ) {
-      const authorId = request.user.userId;
+      const authorId = request.user.id;
       const storyId = param.storyId;
       const updatedComment = await this.storyCommentService.updateComment(
         param.id,
@@ -106,9 +135,15 @@ export class StoryCommentController {
   }
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Delete('/:storyId/:id')
+  @ApiOperation({ summary: 'Delete a comment' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
+  @ApiParam({ name: 'id', description: 'The ID of the comment to delete', type: String })
+  @ApiResponse({ status: 200, description: 'The comment has been successfully deleted.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async deleteChapter(@Param() param, @Req() request, @Res() response) {
-      const authorId = request.user.userId;
+      const authorId = request.user.id;
       await this.storyCommentService.deleteComment(
         param.id,
         authorId,

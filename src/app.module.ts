@@ -9,9 +9,15 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { RatingModule } from './rating/rating.module';
 import { AdminModule } from './admin-only/admin.module';
 import { HistoryModule } from './read-history/read.history.module';
+import { DatabaseModule } from './database/database.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    DatabaseModule,
     UserModule,
     StoryModule,
     ChapterModule,

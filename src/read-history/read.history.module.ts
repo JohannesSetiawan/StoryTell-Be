@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from 'src/prisma/prisma.module';
+import { DatabaseModule } from 'src/database/database.module';
 import { ReadHistoryController } from './read.history.controller';
 import { ReadHistoryService } from './read.history.service';
 
 @Module({
   controllers: [ReadHistoryController],
   providers: [ReadHistoryService],
-  imports: [PrismaModule],
+  imports: [DatabaseModule],
 })
 export class HistoryModule {}

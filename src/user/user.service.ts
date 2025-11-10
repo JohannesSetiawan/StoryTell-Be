@@ -1,29 +1,34 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { User, Prisma } from '@prisma/client';
+import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 import { sign } from 'jsonwebtoken';
-import { UserLoginData, UserTokenPayload } from './user.dto';
+import { LoginResponseDto, UserCreationData, UserLoginData, UpdateUserData, UserResponseDto, UserTokenPayload } from './user.dto';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(@Inject('DATABASE_POOL') private pool: Pool) {}
 
-  async user(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-    const { username, id, description } = user;
-    return { username: username, userId: id, description: description };
+  async user(userId: string): Promise<UserResponseDto> {
+    const result = await this.pool.query(
+      'SELECT id, username, description, "dateCreated", "isAdmin" FROM "User" WHERE id = $1',
+      [userId],
+    );
+    const user = result.rows[0];
+    if (!user) {
+      return null;
+    }
+    return user;
   }
 
-  async login(loginData: UserLoginData) {
+  async login(loginData: UserLoginData): Promise<LoginResponseDto> {
     const { username, password } = loginData;
-    const user = await this.prisma.user.findFirst({
-      where: { username: username },
-    });
+    const result = await this.pool.query(
+      'SELECT * FROM "User" WHERE username = $1',
+      [username],
+    );
+    const user = result.rows[0];
 
-    if (user === null) {
+    if (!user) {
       throw new Error("You haven't registered yet!");
     }
 
@@ -35,59 +40,78 @@ export class UserService {
         process.env.SECRET_KEY,
         { expiresIn: '30 days' },
       );
-      return { user: user.id, token: token };
+      return { token: token };
     } else {
       throw new Error("Username and password doesn't match!");
     }
   }
 
-  async register(data: Prisma.UserCreateInput) {
-    const User = await this.prisma.user.findFirst({
-      where: { username: data.username },
-    });
-    if (User) {
+  async register(data: UserCreationData): Promise<LoginResponseDto> {
+    const userResult = await this.pool.query(
+      'SELECT * FROM "User" WHERE username = $1',
+      [data.username],
+    );
+    if (userResult.rows.length > 0) {
       throw new Error('Username is already registered');
     }
 
     const salt = await bcrypt.genSalt();
-    data.password = await bcrypt.hash(data.password, salt);
-    const newUser = this.prisma.user.create({
-      data,
-    });
-
-    const user = await newUser;
+    const hashedPassword = await bcrypt.hash(data.password, salt);
+    
+    const newUserResult = await this.pool.query(
+      'INSERT INTO "User" (username, password, description) VALUES ($1, $2, $3) RETURNING id, username, description, "isAdmin"',
+      [data.username, hashedPassword],
+    );
+    
+    const user = newUserResult.rows[0];
     const token = sign(
       { username: user.username, id: user.id, isAdmin: user.isAdmin },
       process.env.SECRET_KEY,
       { expiresIn: '30 days' },
     );
-    return { user: (await newUser).id, token: token };
+    return { token: token };
   }
 
-  async updateUser(params: {
-    where: Prisma.UserWhereUniqueInput;
-    data: Prisma.UserUpdateInput;
-  }, updatingUser: UserTokenPayload) {
-    const { where, data } = params;
-    
-    if(!updatingUser.isAdmin && !(updatingUser.userId === where.id)){
-      throw new ForbiddenException("You don't have access to do this action!")
+  async updateUser(userId: string, data: UpdateUserData, updatingUser: UserTokenPayload): Promise<UserResponseDto> {
+    if (!updatingUser.isAdmin && !(updatingUser.id === userId)) {
+      throw new ForbiddenException("You don't have access to do this action!");
     }
 
-    if(data.password){
+    const updates: string[] = [];
+    const values: any[] = [];
+    let valueIndex = 1;
+
+    if (data.username) {
+      updates.push(`username = $${valueIndex++}`);
+      values.push(data.username);
+    }
+
+    if (data.password) {
       const salt = await bcrypt.genSalt();
-      data.password = await bcrypt.hash(data.password, salt);
+      const hashedPassword = await bcrypt.hash(data.password, salt);
+      updates.push(`password = $${valueIndex++}`);
+      values.push(hashedPassword);
+    }
+
+    if (data.description) {
+      updates.push(`description = $${valueIndex++}`);
+      values.push(data.description);
     }
     
-    return this.prisma.user.update({
-      data,
-      where,
-    });
+    if (updates.length === 0) {
+      // Nothing to update
+      return this.user(userId);
+    }
+
+    values.push(userId);
+    const query = `UPDATE "User" SET ${updates.join(', ')} WHERE id = $${valueIndex} RETURNING id, username, description, "dateCreated", "isAdmin"`;
+
+    const result = await this.pool.query(query, values);
+    return result.rows[0];
   }
 
-  async deleteUser(where: Prisma.UserWhereUniqueInput): Promise<User> {
-    return this.prisma.user.delete({
-      where,
-    });
+  async deleteUser(userId: string): Promise<UserResponseDto> {
+    const result = await this.pool.query('DELETE FROM "User" WHERE id = $1 RETURNING id, username, description, "dateCreated", "isAdmin"', [userId]);
+    return result.rows[0];
   }
 }

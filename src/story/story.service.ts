@@ -1,10 +1,9 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Pool } from 'pg';
 import { StoryDto, Story } from './story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { getDateInWIB } from '../utils/date';
-import { Prisma } from '@prisma/client';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -23,16 +22,20 @@ export type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
 @Injectable()
 export class StoryService {
   constructor(
-    private prisma: PrismaService,
+    @Inject('DATABASE_POOL') private pool: Pool,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
   ) {}
 
-  async createStory(data: StoryDto) {
-    const newStory = await this.prisma.story.create({
-      data,
-    });
-
-    return newStory;
+  async createStory(data: StoryDto, authorId: string): Promise<Story> {
+    const { title, description, isPrivate } = data;
+    const query = `
+      INSERT INTO "Story" (title, description, "authorId", isprivate)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+    const values = [title, description, authorId, isPrivate];
+    const result = await this.pool.query(query, values);
+    return result.rows[0];
   }
 
   async getAllStories(
@@ -40,54 +43,51 @@ export class StoryService {
     perPage: number = 10,
     search?: string,
     sort?: SortOption,
-  ): Promise<PaginatedResult<any>> {
+  ): Promise<PaginatedResult<Story>> {
     const pageNumber = Math.max(1, Number(page) || 1);
     const take = Math.max(1, Number(perPage) || 10);
     const skip = (pageNumber - 1) * take;
 
-    const where: Prisma.StoryWhereInput = {
-      isprivate: false,
-    };
+    let whereClause = 's.isprivate = false';
+    const queryParams: any[] = [];
+
     if (search) {
-      where.title = {
-        contains: search,
-        mode: 'insensitive',
-      };
+      queryParams.push(`%${search}%`);
+      whereClause += ` AND s.title ILIKE $${queryParams.length}`;
     }
 
-    let orderBy: Prisma.StoryOrderByWithRelationInput = {};
+    let orderByClause = `s."dateCreated" DESC`;
     switch (sort) {
       case 'oldest':
-        orderBy = { dateCreated: 'asc' };
+        orderByClause = `s."dateCreated" ASC`;
         break;
       case 'title-asc':
-        orderBy = { title: 'asc' };
+        orderByClause = 's.title ASC';
         break;
       case 'title-desc':
-        orderBy = { title: 'desc' };
-        break;
-      case 'newest':
-      default:
-        orderBy = { dateCreated: 'desc' };
+        orderByClause = 's.title DESC';
         break;
     }
 
-    const [stories, total] = await this.prisma.$transaction([
-      this.prisma.story.findMany({
-        where,
-        include: {
-          author: {
-            select: {
-              username: true,
-            },
-          },
-        },
-        orderBy,
-        skip,
-        take,
-      }),
-      this.prisma.story.count({ where }),
-    ]);
+    const countQuery = `SELECT COUNT(*) FROM "Story" s WHERE ${whereClause}`;
+    const totalResult = await this.pool.query(countQuery, queryParams);
+    const total = parseInt(totalResult.rows[0].count, 10);
+
+    queryParams.push(take, skip);
+    const dataQuery = `
+      SELECT s.*, u.username as "authorUsername"
+      FROM "Story" s
+      LEFT JOIN "User" u ON s."authorId" = u.id
+      WHERE ${whereClause}
+      ORDER BY ${orderByClause}
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
+    `;
+
+    const storiesResult = await this.pool.query(dataQuery, queryParams);
+    const stories = storiesResult.rows.map(story => ({
+      ...story,
+      author: { username: story.authorUsername }
+    }));
 
     const lastPage = Math.ceil(total / take);
 
@@ -104,45 +104,52 @@ export class StoryService {
     };
   }
 
-  async getSpecificStory(id: string, readUserId: string) {
+  async getSpecificStory(id: string, readUserId: string): Promise<Story> {
     const cachedStoryData = await this.cacheService.get<Story>(
       'story-' + id.toString(),
     );
 
     if (cachedStoryData) {
       this.checkIsPrivateStory(cachedStoryData, readUserId);
-      await this.createReadHistory(readUserId, id);
+      if(readUserId) await this.createReadHistory(readUserId, id);
       return cachedStoryData;
     }
 
-    const story = await this.prisma.story.findUnique({
-      where: { id: id },
-      include: {
-        chapters: {
-          orderBy: {
-            order: 'asc',
-          },
-        },
-        author: {
-          select: {
-            username: true,
-          },
-        },
-        storyComments: {
-          where: {chapter: null},
-          include: { author: { select: { username: true } } },
-          orderBy: { dateCreated: 'desc' },
-        },
-      },
-    });
+    const storyQuery = `
+      SELECT s.*, u.username as "authorUsername"
+      FROM "Story" s
+      LEFT JOIN "User" u ON s."authorId" = u.id
+      WHERE s.id = $1
+    `;
+    const storyResult = await this.pool.query(storyQuery, [id]);
+    const story = storyResult.rows[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
     }
+    
+    story.author = { username: story.authorUsername };
+
+    const chaptersQuery = 'SELECT * FROM "Chapter" WHERE "storyId" = $1 ORDER BY "dateCreated" ASC';
+    const chaptersResult = await this.pool.query(chaptersQuery, [id]);
+    story.chapters = chaptersResult.rows;
+
+    const commentsQuery = `
+      SELECT sc.*, u.username as "authorUsername"
+      FROM "StoryComment" sc
+      LEFT JOIN "User" u ON sc."authorId" = u.id
+      WHERE sc."storyId" = $1 AND sc."chapterId" IS NULL
+      ORDER BY sc."dateCreated" DESC
+    `;
+    const commentsResult = await this.pool.query(commentsQuery, [id]);
+    story.storyComments = commentsResult.rows.map(comment => ({
+      ...comment,
+      author: { username: comment.authorUsername }
+    }));
 
     this.checkIsPrivateStory(story, readUserId);
 
-    await this.createReadHistory(readUserId, id);
+    if(readUserId) await this.createReadHistory(readUserId, id);
 
     await this.cacheService.set('story-' + id.toString(), story);
     return story;
@@ -154,52 +161,51 @@ export class StoryService {
     perPage: number = 10,
     search?: string,
     sort?: SortOption,
-  ): Promise<PaginatedResult<any>> {
+  ): Promise<PaginatedResult<Story>> {
     const pageNumber = Math.max(1, Number(page) || 1);
     const take = Math.max(1, Number(perPage) || 10);
     const skip = (pageNumber - 1) * take;
 
-    const where: Prisma.StoryWhereInput = {
-      authorId: userId,
-    };
+    let whereClause = '"authorId" = $1';
+    const queryParams: any[] = [userId];
+
     if (search) {
-      where.title = {
-        contains: search,
-        mode: 'insensitive',
-      };
+      queryParams.push(`%${search}%`);
+      whereClause += ` AND title ILIKE $${queryParams.length}`;
     }
 
-    let orderBy: Prisma.StoryOrderByWithRelationInput = {};
+    let orderByClause = `"dateCreated" DESC`;
     switch (sort) {
       case 'oldest':
-        orderBy = { dateCreated: 'asc' };
+        orderByClause = `"dateCreated" ASC`;
         break;
       case 'title-asc':
-        orderBy = { title: 'asc' };
+        orderByClause = 'title ASC';
         break;
       case 'title-desc':
-        orderBy = { title: 'desc' };
-        break;
-      case 'newest':
-      default:
-        orderBy = { dateCreated: 'desc' };
+        orderByClause = 'title DESC';
         break;
     }
 
-    const [stories, total] = await this.prisma.$transaction([
-      this.prisma.story.findMany({
-        where,
-        orderBy,
-        skip,
-        take,
-      }),
-      this.prisma.story.count({ where }),
-    ]);
+    const countQuery = `SELECT COUNT(*) FROM "Story" WHERE ${whereClause}`;
+    const totalResult = await this.pool.query(countQuery, queryParams);
+    const total = parseInt(totalResult.rows[0].count, 10);
+
+    queryParams.push(take, skip);
+    const dataQuery = `
+      SELECT *
+      FROM "Story"
+      WHERE ${whereClause}
+      ORDER BY ${orderByClause}
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
+    `;
+
+    const storiesResult = await this.pool.query(dataQuery, queryParams);
 
     const lastPage = Math.ceil(total / take);
 
     return {
-      data: stories,
+      data: storiesResult.rows,
       meta: {
         total,
         lastPage,
@@ -211,10 +217,9 @@ export class StoryService {
     };
   }
 
-  async updateStory(storyId: string, userId: string, data: StoryDto) {
-    const story = await this.prisma.story.findUnique({
-      where: { id: storyId },
-    });
+  async updateStory(storyId: string, userId: string, data: Partial<StoryDto>): Promise<Story> {
+    const storyResult = await this.pool.query('SELECT * FROM "Story" WHERE id = $1', [storyId]);
+    const story = storyResult.rows[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -226,20 +231,24 @@ export class StoryService {
       );
     }
 
-    const updatedStory = await this.prisma.story.update({
-      data,
-      where: { id: storyId },
-    });
+    const { title, description, isPrivate } = data;
+    const query = `
+      UPDATE "Story"
+      SET title = $1, description = $2, isprivate = $3
+      WHERE id = $4
+      RETURNING *;
+    `;
+    const values = [title, description, isPrivate, storyId];
+    const updatedResult = await this.pool.query(query, values);
 
     await this.cacheService.del('story-' + storyId.toString());
 
-    return updatedStory;
+    return updatedResult.rows[0];
   }
 
-  async deleteStory(storyId: string, userId: string) {
-    const story = await this.prisma.story.findUnique({
-      where: { id: storyId },
-    });
+  async deleteStory(storyId: string, userId: string): Promise<Story> {
+    const storyResult = await this.pool.query('SELECT * FROM "Story" WHERE id = $1', [storyId]);
+    const story = storyResult.rows[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -251,35 +260,26 @@ export class StoryService {
       );
     }
 
-    const deletedStory = await this.prisma.story.delete({
-      where: { id: storyId },
-    });
+    const deletedResult = await this.pool.query('DELETE FROM "Story" WHERE id = $1 RETURNING *', [storyId]);
 
     await this.cacheService.del('story-' + storyId.toString());
 
-    return deletedStory;
+    return deletedResult.rows[0];
   }
 
   private async createReadHistory(readUserId: string, id: string) {
-    await this.prisma.readHistory.upsert({
-      create: {
-        userId: readUserId,
-        storyId: id,
-        date: getDateInWIB(new Date())
-      },
-      update: {
-        date: getDateInWIB(new Date())
-      },
-      where: {
-        storyId_userId: { userId: readUserId, storyId: id }
-      }
-    });
+    const query = `
+      INSERT INTO "ReadHistory" ("userId", "storyId", date)
+      VALUES ($1, $2, $3)
+      ON CONFLICT ("storyId", "userId")
+      DO UPDATE SET date = $3;
+    `;
+    await this.pool.query(query, [readUserId, id, new Date()]);
   }
 
   private checkIsPrivateStory(story: Story, readUserId: string) {
-    if (story.isprivate) {
-      const authorId = readUserId;
-      if (authorId !== story.authorId) {
+    if (story.isPrivate) {
+      if (!readUserId || readUserId !== story.authorId) {
         throw new UnauthorizedException("You can't access this private story!");
       }
     }

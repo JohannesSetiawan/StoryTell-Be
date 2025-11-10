@@ -13,30 +13,42 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { StoryService } from './story.service';
-import { StoryDto } from './story.dto';
+import { StoryDto, Story, PaginatedStoryResponseDto } from './story.dto';
 import { JwtGuard } from 'src/user/jwt.guard';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('story')
 @Controller('story')
 export class StoryController {
   constructor(private readonly storyService: StoryService) {}
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Post('')
+  @ApiOperation({ summary: 'Create a new story' })
+  @ApiBody({ type: StoryDto })
+  @ApiResponse({ status: 201, description: 'The story has been successfully created.', type: Story })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async createStory(
     @Body() createStoryData: StoryDto,
     @Req() request,
     @Res() response,
   ) {
-      const authorId = request.user.userId;
+      const authorId = request.user.id;
       if (!authorId) {
         throw new UnauthorizedException('You are not authenticated yet!');
       }
-      createStoryData.authorId = authorId;
-      const story = await this.storyService.createStory(createStoryData);
+      const story = await this.storyService.createStory(createStoryData, authorId);
       return response.status(201).json(story);
   }
 
   @Get('')
+  @ApiOperation({ summary: 'Get all stories' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'perPage', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'sort', required: false, enum: ['newest', 'oldest', 'title-asc', 'title-desc'] })
+  @ApiResponse({ status: 200, description: 'The stories have been successfully retrieved.', type: PaginatedStoryResponseDto })
   async getAllStories(
     @Query('page') page: number, 
     @Query('perPage') perPage: number,
@@ -54,14 +66,25 @@ export class StoryController {
   }
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Get('/:id')
+  @ApiOperation({ summary: 'Get a specific story' })
+  @ApiParam({ name: 'id', description: 'The ID of the story', type: String })
+  @ApiResponse({ status: 200, description: 'The story has been successfully retrieved.', type: Story })
   async getStory(@Param() param, @Req() request, @Res() response) {
-      const readUserId = request.user.userId
+      const readUserId = request.user.id
       const story = await this.storyService.getSpecificStory(param.id, readUserId);
       return response.status(200).json(story);
   }
 
   @Get('/user/:userId')
+  @ApiOperation({ summary: 'Get stories for a specific user' })
+  @ApiParam({ name: 'userId', description: 'The ID of the user', type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'perPage', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'sort', required: false, enum: ['newest', 'oldest', 'title-asc', 'title-desc'] })
+  @ApiResponse({ status: 200, description: 'The stories have been successfully retrieved.', type: PaginatedStoryResponseDto })
   async getUserSpecificStory(
     @Query('page') page: number, 
     @Query('perPage') perPage: number, 
@@ -83,14 +106,20 @@ export class StoryController {
   }
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Put('/:id')
+  @ApiOperation({ summary: 'Update a story' })
+  @ApiParam({ name: 'id', description: 'The ID of the story to update', type: String })
+  @ApiBody({ type: StoryDto })
+  @ApiResponse({ status: 200, description: 'The story has been successfully updated.', type: Story })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async updateStory(
     @Param() param,
-    @Body() data: StoryDto,
+    @Body() data: Partial<StoryDto>,
     @Req() request,
     @Res() response,
   ) {
-      const authorId = request.user.userId;
+      const authorId = request.user.id;
       const updateStory = await this.storyService.updateStory(
         param.id,
         authorId,
@@ -100,9 +129,14 @@ export class StoryController {
   }
 
   @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Delete('/:id')
+  @ApiOperation({ summary: 'Delete a story' })
+  @ApiParam({ name: 'id', description: 'The ID of the story to delete', type: String })
+  @ApiResponse({ status: 200, description: 'The story has been successfully deleted.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async deleteStory(@Param() param, @Req() request, @Res() response) {
-      const authorId = request.user.userId;
+      const authorId = request.user.id;
       await this.storyService.deleteStory(param.id, authorId);
       return response.status(200).json({ message: 'Deleted successfully!' });
   
