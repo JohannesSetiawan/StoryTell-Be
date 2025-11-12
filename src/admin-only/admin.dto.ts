@@ -99,6 +99,8 @@ export class AdminAllStoryResponseDto {
     author: {
         username: string;
     }
+    @ApiProperty({ type: [String], required: false })
+    tags?: string[];
 }
 
 export class AdminAllChapterResponseDto {

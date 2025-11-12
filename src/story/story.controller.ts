@@ -48,20 +48,24 @@ export class StoryController {
   @ApiQuery({ name: 'perPage', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'sort', required: false, enum: ['newest', 'oldest', 'title-asc', 'title-desc'] })
+  @ApiQuery({ name: 'tagIds', required: false, type: [String], description: 'Filter by tag IDs (comma-separated)' })
   @ApiResponse({ status: 200, description: 'The stories have been successfully retrieved.', type: PaginatedStoryResponseDto })
   async getAllStories(
     @Query('page') page: number, 
     @Query('perPage') perPage: number,
     @Query('search') search: string, 
-    @Query('sort') sort: string,  
+    @Query('sort') sort: string,
+    @Query('tagIds') tagIds: string,
     @Res() response) {
       const currPage = page > 0 ? page : 1;
       const currPerPage = perPage > 0 ? perPage : 10;
+      const tagIdsArray = tagIds ? tagIds.split(',').map(id => id.trim()) : undefined;
       const stories = await this.storyService.getAllStories(
         currPage, 
         currPerPage,
         search,
-        sort as 'newest' | 'oldest' | 'title-asc' | 'title-desc');
+        sort as 'newest' | 'oldest' | 'title-asc' | 'title-desc',
+        tagIdsArray);
       return response.status(200).json(stories);
   }
 
@@ -84,23 +88,27 @@ export class StoryController {
   @ApiQuery({ name: 'perPage', required: false, type: Number })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'sort', required: false, enum: ['newest', 'oldest', 'title-asc', 'title-desc'] })
+  @ApiQuery({ name: 'tagIds', required: false, type: [String], description: 'Filter by tag IDs (comma-separated)' })
   @ApiResponse({ status: 200, description: 'The stories have been successfully retrieved.', type: PaginatedStoryResponseDto })
   async getUserSpecificStory(
     @Query('page') page: number, 
     @Query('perPage') perPage: number, 
     @Query('search') search: string, 
-    @Query('sort') sort: string, 
+    @Query('sort') sort: string,
+    @Query('tagIds') tagIds: string,
     @Res() response, 
     @Param() param
   ) {
       const currPage = page > 0 ? page : 1;
       const currPerPage = perPage > 0 ? perPage : 10;
+      const tagIdsArray = tagIds ? tagIds.split(',').map(id => id.trim()) : undefined;
       const story = await this.storyService.getSpecificUserStories(
         param.userId,
         currPage,
         currPerPage,
         search,
-        sort as 'newest' | 'oldest' | 'title-asc' | 'title-desc'
+        sort as 'newest' | 'oldest' | 'title-asc' | 'title-desc',
+        tagIdsArray
       );
       return response.status(200).json(story);
   }

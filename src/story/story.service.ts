@@ -43,6 +43,7 @@ export class StoryService {
     perPage: number = 10,
     search?: string,
     sort?: SortOption,
+    tagIds?: string[],
   ): Promise<PaginatedResult<Story>> {
     const pageNumber = Math.max(1, Number(page) || 1);
     const take = Math.max(1, Number(perPage) || 10);
@@ -50,6 +51,18 @@ export class StoryService {
 
     let whereClause = 's.isprivate = false';
     const queryParams: any[] = [];
+    let fromClause = '"Story" s';
+    
+    // Add tag filtering if tagIds are provided
+    if (tagIds && tagIds.length > 0) {
+      queryParams.push(tagIds);
+      fromClause = `
+        "Story" s
+        INNER JOIN "TagStory" ts ON s.id = ts."storyId"
+        INNER JOIN "Tag" t ON ts."tagId" = t.id
+      `;
+      whereClause += ` AND t.id = ANY($${queryParams.length})`;
+    }
 
     if (search) {
       queryParams.push(`%${search}%`);
@@ -69,14 +82,14 @@ export class StoryService {
         break;
     }
 
-    const countQuery = `SELECT COUNT(*) FROM "Story" s WHERE ${whereClause}`;
+    const countQuery = `SELECT COUNT(DISTINCT s.id) FROM ${fromClause} WHERE ${whereClause}`;
     const totalResult = await this.pool.query(countQuery, queryParams);
     const total = parseInt(totalResult.rows[0].count, 10);
 
     queryParams.push(take, skip);
     const dataQuery = `
-      SELECT s.*, u.username as "authorUsername"
-      FROM "Story" s
+      SELECT DISTINCT s.*, u.username as "authorUsername"
+      FROM ${fromClause}
       LEFT JOIN "User" u ON s."authorId" = u.id
       WHERE ${whereClause}
       ORDER BY ${orderByClause}
@@ -88,6 +101,19 @@ export class StoryService {
       ...story,
       author: { username: story.authorUsername }
     }));
+    
+    // Fetch tags for each story
+    for (const story of stories) {
+      const tagsQuery = `
+        SELECT t.name 
+        FROM "Tag" t
+        INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+        WHERE ts."storyId" = $1
+        ORDER BY t.category ASC, t.name ASC
+      `;
+      const tagsResult = await this.pool.query(tagsQuery, [story.id]);
+      story.tags = tagsResult.rows.map(row => row.name);
+    }
 
     const lastPage = Math.ceil(total / take);
 
@@ -147,6 +173,17 @@ export class StoryService {
       author: { username: comment.authorUsername }
     }));
 
+    // Fetch tags for the story
+    const tagsQuery = `
+      SELECT t.name 
+      FROM "Tag" t
+      INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+      WHERE ts."storyId" = $1
+      ORDER BY t.category ASC, t.name ASC
+    `;
+    const tagsResult = await this.pool.query(tagsQuery, [id]);
+    story.tags = tagsResult.rows.map(row => row.name);
+
     this.checkIsPrivateStory(story, readUserId);
 
     if(readUserId) await this.createReadHistory(readUserId, id);
@@ -161,51 +198,78 @@ export class StoryService {
     perPage: number = 10,
     search?: string,
     sort?: SortOption,
+    tagIds?: string[],
   ): Promise<PaginatedResult<Story>> {
     const pageNumber = Math.max(1, Number(page) || 1);
     const take = Math.max(1, Number(perPage) || 10);
     const skip = (pageNumber - 1) * take;
 
-    let whereClause = '"authorId" = $1';
+    let whereClause = 's."authorId" = $1';
     const queryParams: any[] = [userId];
+    let fromClause = '"Story" s';
+    
+    // Add tag filtering if tagIds are provided
+    if (tagIds && tagIds.length > 0) {
+      queryParams.push(tagIds);
+      fromClause = `
+        "Story" s
+        INNER JOIN "TagStory" ts ON s.id = ts."storyId"
+        INNER JOIN "Tag" t ON ts."tagId" = t.id
+      `;
+      whereClause += ` AND t.id = ANY($${queryParams.length})`;
+    }
 
     if (search) {
       queryParams.push(`%${search}%`);
-      whereClause += ` AND title ILIKE $${queryParams.length}`;
+      whereClause += ` AND s.title ILIKE $${queryParams.length}`;
     }
 
-    let orderByClause = `"dateCreated" DESC`;
+    let orderByClause = `s."dateCreated" DESC`;
     switch (sort) {
       case 'oldest':
-        orderByClause = `"dateCreated" ASC`;
+        orderByClause = `s."dateCreated" ASC`;
         break;
       case 'title-asc':
-        orderByClause = 'title ASC';
+        orderByClause = 's.title ASC';
         break;
       case 'title-desc':
-        orderByClause = 'title DESC';
+        orderByClause = 's.title DESC';
         break;
     }
 
-    const countQuery = `SELECT COUNT(*) FROM "Story" WHERE ${whereClause}`;
+    const countQuery = `SELECT COUNT(DISTINCT s.id) FROM ${fromClause} WHERE ${whereClause}`;
     const totalResult = await this.pool.query(countQuery, queryParams);
     const total = parseInt(totalResult.rows[0].count, 10);
 
     queryParams.push(take, skip);
     const dataQuery = `
-      SELECT *
-      FROM "Story"
+      SELECT DISTINCT s.*
+      FROM ${fromClause}
       WHERE ${whereClause}
       ORDER BY ${orderByClause}
       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `;
 
     const storiesResult = await this.pool.query(dataQuery, queryParams);
+    
+    // Fetch tags for each story
+    const stories = storiesResult.rows;
+    for (const story of stories) {
+      const tagsQuery = `
+        SELECT t.name 
+        FROM "Tag" t
+        INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+        WHERE ts."storyId" = $1
+        ORDER BY t.category ASC, t.name ASC
+      `;
+      const tagsResult = await this.pool.query(tagsQuery, [story.id]);
+      story.tags = tagsResult.rows.map(row => row.name);
+    }
 
     const lastPage = Math.ceil(total / take);
 
     return {
-      data: storiesResult.rows,
+      data: stories,
       meta: {
         total,
         lastPage,

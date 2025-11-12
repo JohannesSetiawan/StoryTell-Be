@@ -114,6 +114,17 @@ export class AdminService {
       const chaptersResult = await this.pool.query('SELECT * FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC', [story.id]);
       story.chapters = chaptersResult.rows;
       story.author = { username: story['authorUsername'] };
+      
+      // Fetch tags for each story
+      const tagsQuery = `
+        SELECT t.name 
+        FROM "Tag" t
+        INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+        WHERE ts."storyId" = $1
+        ORDER BY t.category ASC, t.name ASC
+      `;
+      const tagsResult = await this.pool.query(tagsQuery, [story.id]);
+      story.tags = tagsResult.rows.map(row => row.name);
     }
     
     const totalPages = Math.ceil(total / limit);

@@ -279,33 +279,76 @@ async function seed() {
     console.log(`   Username: ${adminUsername}`);
     console.log(`   Password: ${adminPassword}`);
 
-    // 2. Process SQL and CSV files in correct order (respecting foreign key constraints)
-    const rootDir = path.join(__dirname, '..');
-    const seedFiles = [
-      { name: 'User_rows.sql', type: 'sql' },
-      { name: 'Story_rows.sql', type: 'sql' },
-      { name: 'Chapter_rows.sql', type: 'sql' },
-      { name: 'Chapter_rows.csv', type: 'csv' },
-      { name: 'StoryComment_rows.sql', type: 'sql' },
-      { name: 'ReadHistory_rows.sql', type: 'sql' },
+    // 2. Seed initial tags
+    console.log('\n🏷️  Seeding initial tags...');
+    
+    const genreTags = [
+      'Shounen', 'Shoujo', 'Josei', 'Seinen', 'Romance', 'Comedy', 
+      'Horror', 'Reverse Harem', 'Harem', 'Slice of Life', 'Action', 
+      'Adventure', 'Military', 'Game', 'Delinquents', 'Demon', 
+      'Villainess', 'Yakuza'
     ];
-
-    console.log('\n='.repeat(50));
-    console.log('📚 Processing seed files...');
-
-    for (const seedFile of seedFiles) {
-      const filePath = path.join(rootDir, seedFile.name);
-      
-      if (fs.existsSync(filePath)) {
-        if (seedFile.type === 'sql') {
-          await processSqlFile(client, filePath);
-        } else if (seedFile.type === 'csv') {
-          await processCsvFile(client, filePath);
-        }
-      } else {
-        console.log(`\n⚠️  File not found: ${seedFile.name}`);
+    
+    const languageTags = [
+      'English', 'Indonesia', 'Chinese', 'Japanese', 'Korean'
+    ];
+    
+    let genreCount = 0;
+    for (const tag of genreTags) {
+      try {
+        await client.query(
+          'INSERT INTO "Tag" (name, category) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING',
+          [tag, 'genre']
+        );
+        genreCount++;
+      } catch (error) {
+        // Skip on conflict
       }
     }
+    
+    let languageCount = 0;
+    for (const tag of languageTags) {
+      try {
+        await client.query(
+          'INSERT INTO "Tag" (name, category) VALUES ($1, $2) ON CONFLICT (name) DO NOTHING',
+          [tag, 'language']
+        );
+        languageCount++;
+      } catch (error) {
+        // Skip on conflict
+      }
+    }
+    
+    console.log(`   ✅ Inserted ${genreCount} genre tags`);
+    console.log(`   ✅ Inserted ${languageCount} language tags`);
+
+    // 3. Process SQL and CSV files in correct order (respecting foreign key constraints)
+    // const rootDir = path.join(__dirname, '..');
+    // const seedFiles = [
+    //   { name: 'User_rows.sql', type: 'sql' },
+    //   { name: 'Story_rows.sql', type: 'sql' },
+    //   { name: 'Chapter_rows.sql', type: 'sql' },
+    //   { name: 'Chapter_rows.csv', type: 'csv' },
+    //   { name: 'StoryComment_rows.sql', type: 'sql' },
+    //   { name: 'ReadHistory_rows.sql', type: 'sql' },
+    // ];
+
+    // console.log('\n='.repeat(50));
+    // console.log('📚 Processing seed files...');
+
+    // for (const seedFile of seedFiles) {
+    //   const filePath = path.join(rootDir, seedFile.name);
+      
+    //   if (fs.existsSync(filePath)) {
+    //     if (seedFile.type === 'sql') {
+    //       await processSqlFile(client, filePath);
+    //     } else if (seedFile.type === 'csv') {
+    //       await processCsvFile(client, filePath);
+    //     }
+    //   } else {
+    //     console.log(`\n⚠️  File not found: ${seedFile.name}`);
+    //   }
+    // }
 
     console.log('\n='.repeat(50));
     console.log('\n✅ Database seeding completed successfully!\n');

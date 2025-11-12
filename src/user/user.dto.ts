@@ -16,6 +16,8 @@ export class LoginResponseDto {
   token: string;
   @ApiProperty()
   user: string;
+  @ApiProperty()
+  isAdmin: boolean;
 }
 
 export class UserResponseDto {

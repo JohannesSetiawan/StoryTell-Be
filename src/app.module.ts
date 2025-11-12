@@ -11,6 +11,7 @@ import { AdminModule } from './admin-only/admin.module';
 import { HistoryModule } from './read-history/read.history.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
+import { TagModule } from './tag/tag.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ConfigModule } from '@nestjs/config';
     RatingModule,
     AdminModule,
     HistoryModule,
+    TagModule,
     CacheModule.register({ isGlobal: true, ttl: 60000, max: 10 }),
   ],
   controllers: [AppController],

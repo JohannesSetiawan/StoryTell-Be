@@ -37,6 +37,8 @@ export class Story {
   ratings?: Rating[];
   @ApiProperty({ type: () => [ReadHistory], required: false })
   storyReadHistory?: ReadHistory[];
+  @ApiProperty({ type: [String], required: false })
+  tags?: string[];
 };
 
 export class PaginatedStoryResponseDto {
