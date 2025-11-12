@@ -113,6 +113,38 @@ export class StoryController {
       return response.status(200).json(story);
   }
 
+  @Get('/username/:username/public')
+  @ApiOperation({ summary: 'Get public stories for a specific username' })
+  @ApiParam({ name: 'username', description: 'The username of the user', type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'perPage', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'sort', required: false, enum: ['newest', 'oldest', 'title-asc', 'title-desc'] })
+  @ApiQuery({ name: 'tagIds', required: false, type: [String], description: 'Filter by tag IDs (comma-separated)' })
+  @ApiResponse({ status: 200, description: 'The public stories have been successfully retrieved.', type: PaginatedStoryResponseDto })
+  async getPublicStoriesByUsername(
+    @Query('page') page: number, 
+    @Query('perPage') perPage: number, 
+    @Query('search') search: string, 
+    @Query('sort') sort: string,
+    @Query('tagIds') tagIds: string,
+    @Res() response, 
+    @Param('username') username: string
+  ) {
+      const currPage = page > 0 ? page : 1;
+      const currPerPage = perPage > 0 ? perPage : 10;
+      const tagIdsArray = tagIds ? tagIds.split(',').map(id => id.trim()) : undefined;
+      const stories = await this.storyService.getPublicStoriesByUsername(
+        username,
+        currPage,
+        currPerPage,
+        search,
+        sort as 'newest' | 'oldest' | 'title-asc' | 'title-desc',
+        tagIdsArray
+      );
+      return response.status(200).json(stories);
+  }
+
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
   @Put('/:id')

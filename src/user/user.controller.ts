@@ -67,6 +67,20 @@ export class UserController {
     }
   }
 
+  @Get('/username/:username')
+  @ApiOperation({ summary: 'Get user by username' })
+  @ApiParam({ name: 'username', description: 'The username of the user', type: String })
+  @ApiResponse({ status: 200, description: 'The user detail.', type: UserResponseDto })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async getUserByUsername(@Param('username') username: string, @Res() response) {
+    try {
+      const responseData = await this.userService.getUserByUsername(username);
+      return response.status(200).json(responseData);
+    } catch (error) {
+      return response.status(404).json({ message: error.message });
+    }
+  }
+
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
   @Put('')

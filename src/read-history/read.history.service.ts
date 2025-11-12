@@ -16,9 +16,12 @@ export class ReadHistoryService {
         rh."storyId",
         rh."chapterId",
         rh.date,
-        s.title as "storyTitle"
+        s.title as "storyTitle",
+        c.title as "chapterTitle",
+        c.order as "chapterOrder"
       FROM "ReadHistory" rh
       LEFT JOIN "Story" s ON rh."storyId" = s.id
+      LEFT JOIN "Chapter" c ON rh."chapterId" = c.id
       WHERE rh."userId" = $1
       ORDER BY rh.date DESC;
     `;
@@ -29,7 +32,13 @@ export class ReadHistoryService {
       storyId: history.storyId,
       chapterId: history.chapterId,
       date: history.date,
-      story: { title: history.storyTitle }
+      story: { title: history.storyTitle },
+      ...(history.chapterTitle && {
+        chapter: {
+          title: history.chapterTitle,
+          order: history.chapterOrder
+        }
+      })
     }));
   }
 

@@ -37,6 +37,11 @@ export class ReadHistoryResponseDto {
     story: {
         title: string;
     }
+    @ApiProperty({ required: false })
+    chapter?: {
+        title: string;
+        order: number;
+    }
 }
 
 export class SpecificReadHistoryResponseDto {

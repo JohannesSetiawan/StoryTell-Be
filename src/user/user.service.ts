@@ -20,6 +20,18 @@ export class UserService {
     return user;
   }
 
+  async getUserByUsername(username: string): Promise<UserResponseDto> {
+    const result = await this.pool.query(
+      'SELECT id, username, description, "dateCreated", "isAdmin" FROM "User" WHERE username = $1',
+      [username],
+    );
+    const user = result.rows[0];
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return user;
+  }
+
   async login(loginData: UserLoginData): Promise<LoginResponseDto> {
     const { username, password } = loginData;
     const result = await this.pool.query(
@@ -40,7 +52,7 @@ export class UserService {
         process.env.SECRET_KEY,
         { expiresIn: '30 days' },
       );
-      return { token: token, user: user.id, isAdmin: user.isAdmin };
+      return { token: token, user: user.id, username: user.username, isAdmin: user.isAdmin };
     } else {
       throw new Error("Username and password doesn't match!");
     }
@@ -70,7 +82,7 @@ export class UserService {
       { expiresIn: '30 days' },
     );
     return { 
-      token: token, user: user.id, isAdmin: user.isAdmin };
+      token: token, user: user.id, username: user.username, isAdmin: user.isAdmin };
   }
 
   async updateUser(userId: string, data: UpdateUserData, updatingUser: UserTokenPayload): Promise<UserResponseDto> {

@@ -102,17 +102,31 @@ export class StoryService {
       author: { username: story.authorUsername }
     }));
     
-    // Fetch tags for each story
-    for (const story of stories) {
+    // Fetch tags for all stories in a single query to avoid N+1
+    if (stories.length > 0) {
+      const storyIds = stories.map(story => story.id);
       const tagsQuery = `
-        SELECT t.name 
+        SELECT ts."storyId", t.name 
         FROM "Tag" t
         INNER JOIN "TagStory" ts ON t.id = ts."tagId"
-        WHERE ts."storyId" = $1
-        ORDER BY t.category ASC, t.name ASC
+        WHERE ts."storyId" = ANY($1)
+        ORDER BY ts."storyId", t.category ASC, t.name ASC
       `;
-      const tagsResult = await this.pool.query(tagsQuery, [story.id]);
-      story.tags = tagsResult.rows.map(row => row.name);
+      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      
+      // Group tags by story ID
+      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+        if (!acc[row.storyId]) {
+          acc[row.storyId] = [];
+        }
+        acc[row.storyId].push(row.name);
+        return acc;
+      }, {} as Record<string, string[]>);
+      
+      // Assign tags to each story
+      stories.forEach(story => {
+        story.tags = tagsByStoryId[story.id] || [];
+      });
     }
 
     const lastPage = Math.ceil(total / take);
@@ -251,19 +265,151 @@ export class StoryService {
     `;
 
     const storiesResult = await this.pool.query(dataQuery, queryParams);
-    
-    // Fetch tags for each story
     const stories = storiesResult.rows;
-    for (const story of stories) {
+    
+    // Fetch tags for all stories in a single query to avoid N+1
+    if (stories.length > 0) {
+      const storyIds = stories.map(story => story.id);
       const tagsQuery = `
-        SELECT t.name 
+        SELECT ts."storyId", t.name 
         FROM "Tag" t
         INNER JOIN "TagStory" ts ON t.id = ts."tagId"
-        WHERE ts."storyId" = $1
-        ORDER BY t.category ASC, t.name ASC
+        WHERE ts."storyId" = ANY($1)
+        ORDER BY ts."storyId", t.category ASC, t.name ASC
       `;
-      const tagsResult = await this.pool.query(tagsQuery, [story.id]);
-      story.tags = tagsResult.rows.map(row => row.name);
+      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      
+      // Group tags by story ID
+      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+        if (!acc[row.storyId]) {
+          acc[row.storyId] = [];
+        }
+        acc[row.storyId].push(row.name);
+        return acc;
+      }, {} as Record<string, string[]>);
+      
+      // Assign tags to each story
+      stories.forEach(story => {
+        story.tags = tagsByStoryId[story.id] || [];
+      });
+    }
+
+    const lastPage = Math.ceil(total / take);
+
+    return {
+      data: stories,
+      meta: {
+        total,
+        lastPage,
+        currentPage: pageNumber,
+        perPage: take,
+        prev: pageNumber > 1 ? pageNumber - 1 : null,
+        next: pageNumber < lastPage ? pageNumber + 1 : null,
+      },
+    };
+  }
+
+  async getPublicStoriesByUsername(
+    username: string,
+    page: number = 1,
+    perPage: number = 10,
+    search?: string,
+    sort?: SortOption,
+    tagIds?: string[],
+  ): Promise<PaginatedResult<Story>> {
+    // First get the user ID from username
+    const userResult = await this.pool.query(
+      'SELECT id FROM "User" WHERE username = $1',
+      [username],
+    );
+    
+    if (userResult.rows.length === 0) {
+      throw new NotFoundException('User not found');
+    }
+    
+    const userId = userResult.rows[0].id;
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const take = Math.max(1, Number(perPage) || 10);
+    const skip = (pageNumber - 1) * take;
+
+    let whereClause = 's."authorId" = $1 AND s.isprivate = false';
+    const queryParams: any[] = [userId];
+    let fromClause = '"Story" s';
+    
+    // Add tag filtering if tagIds are provided
+    if (tagIds && tagIds.length > 0) {
+      queryParams.push(tagIds);
+      fromClause = `
+        "Story" s
+        INNER JOIN "TagStory" ts ON s.id = ts."storyId"
+        INNER JOIN "Tag" t ON ts."tagId" = t.id
+      `;
+      whereClause += ` AND t.id = ANY($${queryParams.length})`;
+    }
+
+    if (search) {
+      queryParams.push(`%${search}%`);
+      whereClause += ` AND s.title ILIKE $${queryParams.length}`;
+    }
+
+    let orderByClause = `s."dateCreated" DESC`;
+    switch (sort) {
+      case 'oldest':
+        orderByClause = `s."dateCreated" ASC`;
+        break;
+      case 'title-asc':
+        orderByClause = 's.title ASC';
+        break;
+      case 'title-desc':
+        orderByClause = 's.title DESC';
+        break;
+    }
+
+    const countQuery = `SELECT COUNT(DISTINCT s.id) FROM ${fromClause} WHERE ${whereClause}`;
+    const totalResult = await this.pool.query(countQuery, queryParams);
+    const total = parseInt(totalResult.rows[0].count, 10);
+
+    queryParams.push(take, skip);
+    const dataQuery = `
+      SELECT DISTINCT s.*, u.username as "authorUsername"
+      FROM ${fromClause}
+      LEFT JOIN "User" u ON s."authorId" = u.id
+      WHERE ${whereClause}
+      ORDER BY ${orderByClause}
+      LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
+    `;
+
+    const storiesResult = await this.pool.query(dataQuery, queryParams);
+    const stories = storiesResult.rows.map(story => ({
+      ...story,
+      author: { username: story.authorUsername }
+    }));
+    
+    // Fetch tags for all stories in a single query to avoid N+1
+    if (stories.length > 0) {
+      const storyIds = stories.map(story => story.id);
+      const tagsQuery = `
+        SELECT ts."storyId", t.name 
+        FROM "Tag" t
+        INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+        WHERE ts."storyId" = ANY($1)
+        ORDER BY ts."storyId", t.category ASC, t.name ASC
+      `;
+      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      
+      // Group tags by story ID
+      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+        if (!acc[row.storyId]) {
+          acc[row.storyId] = [];
+        }
+        acc[row.storyId].push(row.name);
+        return acc;
+      }, {} as Record<string, string[]>);
+      
+      // Assign tags to each story
+      stories.forEach(story => {
+        story.tags = tagsByStoryId[story.id] || [];
+      });
     }
 
     const lastPage = Math.ceil(total / take);
