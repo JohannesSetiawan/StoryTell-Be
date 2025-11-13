@@ -27,15 +27,28 @@ export class StoryService {
   ) {}
 
   async createStory(data: StoryDto, authorId: string): Promise<Story> {
-    const { title, description, isprivate } = data;
+    const { title, description, isprivate, tagIds, storyStatus } = data;
     const query = `
-      INSERT INTO "Story" (title, description, "authorId", isprivate)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO "Story" (title, description, "authorId", isprivate, "storyStatus")
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
     `;
-    const values = [title, description, authorId, isprivate];
+    const values = [title, description, authorId, isprivate, storyStatus || 'Ongoing'];
     const result = await this.pool.query(query, values);
-    return result.rows[0];
+    const story = result.rows[0];
+
+    // Assign tags if provided
+    if (tagIds && tagIds.length > 0) {
+      const insertTagPromises = tagIds.map(tagId =>
+        this.pool.query(
+          'INSERT INTO "TagStory" ("tagId", "storyId") VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [tagId, story.id]
+        )
+      );
+      await Promise.all(insertTagPromises);
+    }
+
+    return story;
   }
 
   async getAllStories(
@@ -441,15 +454,32 @@ export class StoryService {
       );
     }
 
-    const { title, description, isprivate } = data;
+    const { title, description, isprivate, tagIds, storyStatus } = data;
     const query = `
       UPDATE "Story"
-      SET title = $1, description = $2, isprivate = $3
-      WHERE id = $4
+      SET title = $1, description = $2, isprivate = $3, "storyStatus" = $4
+      WHERE id = $5
       RETURNING *;
     `;
-    const values = [title, description, isprivate, storyId];
+    const values = [title, description, isprivate, storyStatus || story.storyStatus, storyId];
     const updatedResult = await this.pool.query(query, values);
+
+    // Update tags if provided
+    if (tagIds !== undefined) {
+      // Delete existing tags
+      await this.pool.query('DELETE FROM "TagStory" WHERE "storyId" = $1', [storyId]);
+      
+      // Insert new tags
+      if (tagIds.length > 0) {
+        const insertTagPromises = tagIds.map(tagId =>
+          this.pool.query(
+            'INSERT INTO "TagStory" ("tagId", "storyId") VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [tagId, storyId]
+          )
+        );
+        await Promise.all(insertTagPromises);
+      }
+    }
 
     await this.cacheService.del('story-' + storyId.toString());
 

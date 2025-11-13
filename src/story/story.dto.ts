@@ -5,6 +5,8 @@ import { ReadHistory } from "../read-history/read.history.dto";
 import { StoryComment } from "../story-comment/story.comment.dto";
 import { User } from "../user/user.dto";
 
+export type StoryStatus = 'Ongoing' | 'Cancelled' | 'Dropped' | 'Completed';
+
 export class StoryDto {
   @ApiProperty()
   title: string;
@@ -12,6 +14,19 @@ export class StoryDto {
   description: string;
   @ApiProperty({ default: false })
   isprivate: boolean;
+  @ApiProperty({ 
+    type: [String], 
+    required: false,
+    description: 'Array of tag IDs to assign to the story' 
+  })
+  tagIds?: string[];
+  @ApiProperty({ 
+    enum: ['Ongoing', 'Cancelled', 'Dropped', 'Completed'],
+    default: 'Ongoing',
+    required: false,
+    description: 'Story status' 
+  })
+  storyStatus?: StoryStatus;
 };
 
 export class Story {
@@ -39,6 +54,8 @@ export class Story {
   storyReadHistory?: ReadHistory[];
   @ApiProperty({ type: [String], required: false })
   tags?: string[];
+  @ApiProperty({ enum: ['Ongoing', 'Cancelled', 'Dropped', 'Completed'], default: 'Ongoing' })
+  storyStatus: StoryStatus;
 };
 
 export class PaginatedStoryResponseDto {
