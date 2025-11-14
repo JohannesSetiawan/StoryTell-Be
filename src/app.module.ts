@@ -12,6 +12,7 @@ import { HistoryModule } from './read-history/read.history.module';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { TagModule } from './tag/tag.module';
+import { BookmarkModule } from './bookmark/bookmark.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TagModule } from './tag/tag.module';
     AdminModule,
     HistoryModule,
     TagModule,
+    BookmarkModule,
     CacheModule.register({ isGlobal: true, ttl: 60000, max: 10 }),
   ],
   controllers: [AppController],
