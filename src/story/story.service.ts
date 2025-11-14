@@ -183,7 +183,7 @@ export class StoryService {
     
     story.author = { username: story.authorUsername };
 
-    const chaptersQuery = 'SELECT * FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC';
+    const chaptersQuery = 'SELECT * FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC';
     const chaptersResult = await this.pool.query(chaptersQuery, [id]);
     story.chapters = chaptersResult.rows;
 
