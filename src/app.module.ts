@@ -29,7 +29,12 @@ import { BookmarkModule } from './bookmark/bookmark.module';
     HistoryModule,
     TagModule,
     BookmarkModule,
-    CacheModule.register({ isGlobal: true, ttl: 60000, max: 10 }),
+    CacheModule.register({ 
+      isGlobal: true, 
+      ttl: 300000, // 5 minutes (300 seconds)
+      max: 1000, // Store up to 1000 items
+      // TODO: Consider implementing Redis for production for better cache performance
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],
