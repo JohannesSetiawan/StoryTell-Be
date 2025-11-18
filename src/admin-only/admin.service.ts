@@ -110,21 +110,54 @@ export class AdminService {
     const result = await this.pool.query(query, [...params, limit, offset]);
     
     const stories: AdminAllStoryResponseDto[] = result.rows;
-    for (const story of stories) {
-      const chaptersResult = await this.pool.query('SELECT id, title, content, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC', [story.id]);
-      story.chapters = chaptersResult.rows;
-      story.author = { username: story['authorUsername'] };
+    
+    // Optimize: Batch fetch chapters for all stories to avoid N+1 query
+    if (stories.length > 0) {
+      const storyIds = stories.map(story => story.id);
       
-      // Fetch tags for each story
+      // Fetch all chapters for all stories in one query
+      const chaptersQuery = `
+        SELECT id, title, content, "order", "storyId", "dateCreated" 
+        FROM "Chapter" 
+        WHERE "storyId" = ANY($1)
+        ORDER BY "storyId", "order" ASC
+      `;
+      const chaptersResult = await this.pool.query(chaptersQuery, [storyIds]);
+      
+      // Group chapters by storyId
+      const chaptersByStoryId = chaptersResult.rows.reduce((acc, chapter) => {
+        if (!acc[chapter.storyId]) {
+          acc[chapter.storyId] = [];
+        }
+        acc[chapter.storyId].push(chapter);
+        return acc;
+      }, {} as Record<string, any[]>);
+      
+      // Fetch all tags for all stories in one query
       const tagsQuery = `
-        SELECT t.name 
+        SELECT ts."storyId", t.name 
         FROM "Tag" t
         INNER JOIN "TagStory" ts ON t.id = ts."tagId"
-        WHERE ts."storyId" = $1
-        ORDER BY t.category ASC, t.name ASC
+        WHERE ts."storyId" = ANY($1)
+        ORDER BY ts."storyId", t.category ASC, t.name ASC
       `;
-      const tagsResult = await this.pool.query(tagsQuery, [story.id]);
-      story.tags = tagsResult.rows.map(row => row.name);
+      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      
+      // Group tags by storyId
+      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+        if (!acc[row.storyId]) {
+          acc[row.storyId] = [];
+        }
+        acc[row.storyId].push(row.name);
+        return acc;
+      }, {} as Record<string, string[]>);
+      
+      // Assign chapters and tags to each story
+      stories.forEach(story => {
+        story.chapters = chaptersByStoryId[story.id] || [];
+        story.tags = tagsByStoryId[story.id] || [];
+        story.author = { username: story['authorUsername'] };
+      });
     }
     
     const totalPages = Math.ceil(total / limit);
