@@ -71,6 +71,18 @@ export class StoryController {
 
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
+  @Get('/:id/details')
+  @ApiOperation({ summary: 'Get complete story details with ratings, user rating, history, bookmark status, and tags' })
+  @ApiParam({ name: 'id', description: 'The ID of the story', type: String })
+  @ApiResponse({ status: 200, description: 'The complete story details have been successfully retrieved.' })
+  async getStoryDetails(@Param('id') id: string, @Req() request, @Res() response) {
+      const userId = request.user.id;
+      const details = await this.storyService.getStoryDetails(id, userId);
+      return response.status(200).json(details);
+  }
+
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
   @Get('/:id')
   @ApiOperation({ summary: 'Get a specific story' })
   @ApiParam({ name: 'id', description: 'The ID of the story', type: String })

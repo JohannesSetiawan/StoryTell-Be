@@ -517,6 +517,100 @@ export class StoryService {
     await this.pool.query(query, [readUserId, id, new Date()]);
   }
 
+  async getStoryDetails(storyId: string, userId: string) {
+    // Get story with all related data
+    const story = await this.getSpecificStory(storyId, userId);
+
+    // Get ratings aggregation
+    const ratingsQuery = `
+      SELECT 
+        COUNT(rate) as count,
+        AVG(rate) as avg,
+        SUM(rate) as sum
+      FROM "Rating"
+      WHERE "storyId" = $1
+      GROUP BY "storyId";
+    `;
+    const ratingsResult = await this.pool.query(ratingsQuery, [storyId]);
+    const ratings = ratingsResult.rows.length === 0 ? {
+      _count: { rate: 0 },
+      _avg: { rate: 0 },
+      _sum: { rate: 0 }
+    } : {
+      _count: { rate: parseInt(ratingsResult.rows[0].count, 10) },
+      _avg: { rate: parseFloat(ratingsResult.rows[0].avg) },
+      _sum: { rate: parseInt(ratingsResult.rows[0].sum, 10) }
+    };
+
+    // Get user's rating
+    const userRatingQuery = 'SELECT id, "authorId", "storyId", rate FROM "Rating" WHERE "storyId" = $1 AND "authorId" = $2';
+    const userRatingResult = await this.pool.query(userRatingQuery, [storyId, userId]);
+    const userRating = userRatingResult.rows.length === 0 ? {
+      id: null,
+      authorId: null,
+      storyId: null,
+      rate: null,
+      message: "You have not rated this story yet."
+    } : userRatingResult.rows[0];
+
+    // Get read history
+    const historyQuery = `
+      SELECT 
+        rh.id,
+        rh."userId",
+        rh."storyId",
+        rh."chapterId",
+        rh.date,
+        s.title as "storyTitle",
+        c.title as "chapterTitle",
+        c.order as "chapterOrder"
+      FROM "ReadHistory" rh
+      LEFT JOIN "Story" s ON rh."storyId" = s.id
+      LEFT JOIN "Chapter" c ON rh."chapterId" = c.id
+      WHERE rh."userId" = $1 AND rh."storyId" = $2;
+    `;
+    const historyResult = await this.pool.query(historyQuery, [userId, storyId]);
+    const history = historyResult.rows[0] ? {
+      id: historyResult.rows[0].id,
+      userId: historyResult.rows[0].userId,
+      storyId: historyResult.rows[0].storyId,
+      chapterId: historyResult.rows[0].chapterId,
+      date: historyResult.rows[0].date,
+      story: { title: historyResult.rows[0].storyTitle },
+      ...(historyResult.rows[0].chapterTitle && {
+        chapter: {
+          title: historyResult.rows[0].chapterTitle,
+          order: historyResult.rows[0].chapterOrder
+        }
+      })
+    } : null;
+
+    // Check bookmark status
+    const bookmarkQuery = 'SELECT id FROM "Bookmark" WHERE "userId" = $1 AND "storyId" = $2';
+    const bookmarkResult = await this.pool.query(bookmarkQuery, [userId, storyId]);
+    const isBookmarked = bookmarkResult.rows.length > 0;
+
+    // Get story tags (already included in story object)
+    const tagsQuery = `
+      SELECT t.id, t.name, t.category, t."dateCreated" 
+      FROM "Tag" t
+      INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+      WHERE ts."storyId" = $1
+      ORDER BY t.category ASC, t.name ASC
+    `;
+    const tagsResult = await this.pool.query(tagsQuery, [storyId]);
+    const storyTags = tagsResult.rows;
+
+    return {
+      story,
+      ratings,
+      userRating,
+      history,
+      isBookmarked,
+      storyTags
+    };
+  }
+
   private checkIsPrivateStory(story: Story, readUserId: string) {
     if (story.isPrivate) {
       if (!readUserId || readUserId !== story.authorId) {
