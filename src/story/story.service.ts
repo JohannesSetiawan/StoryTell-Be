@@ -183,7 +183,7 @@ export class StoryService {
     
     story.author = { username: story.authorUsername };
 
-    const chaptersQuery = 'SELECT * FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC';
+    const chaptersQuery = 'SELECT id, title, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC';
     const chaptersResult = await this.pool.query(chaptersQuery, [id]);
     story.chapters = chaptersResult.rows;
 
@@ -441,7 +441,7 @@ export class StoryService {
   }
 
   async updateStory(storyId: string, userId: string, data: Partial<StoryDto>): Promise<Story> {
-    const storyResult = await this.pool.query('SELECT * FROM "Story" WHERE id = $1', [storyId]);
+    const storyResult = await this.pool.query('SELECT id, "authorId", "storyStatus" FROM "Story" WHERE id = $1', [storyId]);
     const story = storyResult.rows[0];
 
     if (!story) {
@@ -487,7 +487,7 @@ export class StoryService {
   }
 
   async deleteStory(storyId: string, userId: string): Promise<Story> {
-    const storyResult = await this.pool.query('SELECT * FROM "Story" WHERE id = $1', [storyId]);
+    const storyResult = await this.pool.query('SELECT id, "authorId" FROM "Story" WHERE id = $1', [storyId]);
     const story = storyResult.rows[0];
 
     if (!story) {

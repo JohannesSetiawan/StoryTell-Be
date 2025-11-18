@@ -74,7 +74,7 @@ export class RatingService {
   }
 
   async getUserRatingForStory(storyId: string, userId: string): Promise<UserRatingResponseDto> {
-    const query = 'SELECT * FROM "Rating" WHERE "storyId" = $1 AND "authorId" = $2';
+    const query = 'SELECT id, "authorId", "storyId", rate FROM "Rating" WHERE "storyId" = $1 AND "authorId" = $2';
     const result = await this.pool.query(query, [storyId, userId]);
 
     if (result.rows.length === 0) {

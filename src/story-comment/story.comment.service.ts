@@ -67,7 +67,7 @@ export class StoryCommentService {
   }
 
   async getSpecificCommentForStory(commentId: string): Promise<StoryComment> {
-    const query = 'SELECT * FROM "StoryComment" WHERE id = $1';
+    const query = 'SELECT id, content, "authorId", "storyId", "chapterId", "parentId", "dateCreated" FROM "StoryComment" WHERE id = $1';
     const result = await this.pool.query(query, [commentId]);
     return result.rows[0];
   }
@@ -78,7 +78,7 @@ export class StoryCommentService {
     storyId: string,
     data: StoryCommentDto,
   ): Promise<StoryComment> {
-    const commentResult = await this.pool.query('SELECT * FROM "StoryComment" WHERE id = $1 AND "storyId" = $2', [commentId, storyId]);
+    const commentResult = await this.pool.query('SELECT id, "authorId", "chapterId" FROM "StoryComment" WHERE id = $1 AND "storyId" = $2', [commentId, storyId]);
     const comment = commentResult.rows[0];
 
     if (!comment) {
@@ -110,7 +110,7 @@ export class StoryCommentService {
   }
 
   async deleteComment(commentId: string, userId: string, storyId: string): Promise<StoryComment> {
-    const commentResult = await this.pool.query('SELECT * FROM "StoryComment" WHERE id = $1', [commentId]);
+    const commentResult = await this.pool.query('SELECT id, "authorId", "chapterId" FROM "StoryComment" WHERE id = $1', [commentId]);
     const comment = commentResult.rows[0];
 
     if (!comment) {

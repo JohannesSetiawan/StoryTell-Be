@@ -40,7 +40,7 @@ export class ChapterService {
   }
 
   async getAllChapterForStory(storyId: string): Promise<Chapter[]> {
-    const query = 'SELECT * FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC';
+    const query = 'SELECT id, title, content, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC';
     const chaptersResult = await this.pool.query(query, [storyId]);
     return chaptersResult.rows;
   }

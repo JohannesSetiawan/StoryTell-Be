@@ -14,7 +14,7 @@ export class TagService {
     
     // Check if tag with the same name already exists
     const existingTag = await this.pool.query(
-      'SELECT * FROM "Tag" WHERE LOWER(name) = LOWER($1)',
+      'SELECT id FROM "Tag" WHERE LOWER(name) = LOWER($1)',
       [name]
     );
     
@@ -25,7 +25,7 @@ export class TagService {
     const query = `
       INSERT INTO "Tag" (name, category)
       VALUES ($1, $2)
-      RETURNING *;
+      RETURNING id, name, category, "dateCreated";
     `;
     const result = await this.pool.query(query, [name, category]);
     return result.rows[0];
@@ -61,7 +61,7 @@ export class TagService {
     
     // Get paginated data
     const query = `
-      SELECT * 
+      SELECT id, name, category, "dateCreated" 
       FROM "Tag" 
       ${whereClause}
       ORDER BY category ASC, name ASC
@@ -84,7 +84,7 @@ export class TagService {
 
   // Admin: Get a specific tag by ID
   async getTagById(id: string): Promise<Tag> {
-    const query = 'SELECT * FROM "Tag" WHERE id = $1';
+    const query = 'SELECT id, name, category, "dateCreated" FROM "Tag" WHERE id = $1';
     const result = await this.pool.query(query, [id]);
     
     if (result.rows.length === 0) {
@@ -103,7 +103,7 @@ export class TagService {
     // If updating name, check for conflicts
     if (name && name.toLowerCase() !== existingTag.name.toLowerCase()) {
       const duplicateTag = await this.pool.query(
-        'SELECT * FROM "Tag" WHERE LOWER(name) = LOWER($1) AND id != $2',
+        'SELECT id FROM "Tag" WHERE LOWER(name) = LOWER($1) AND id != $2',
         [name, id]
       );
       
@@ -116,7 +116,7 @@ export class TagService {
       UPDATE "Tag"
       SET name = COALESCE($1, name), category = COALESCE($2, category)
       WHERE id = $3
-      RETURNING *;
+      RETURNING id, name, category, "dateCreated";
     `;
     const result = await this.pool.query(query, [name, category, id]);
     return result.rows[0];
@@ -127,7 +127,7 @@ export class TagService {
     const tag = await this.getTagById(id);
     
     // Delete the tag (TagStory entries will be cascaded)
-    const query = 'DELETE FROM "Tag" WHERE id = $1 RETURNING *';
+    const query = 'DELETE FROM "Tag" WHERE id = $1 RETURNING id, name, category, "dateCreated"';
     const result = await this.pool.query(query, [id]);
     
     return result.rows[0];
@@ -136,7 +136,7 @@ export class TagService {
   // User: Get tags for a specific story
   async getStoryTags(storyId: string): Promise<Tag[]> {
     const query = `
-      SELECT t.* 
+      SELECT t.id, t.name, t.category, t."dateCreated" 
       FROM "Tag" t
       INNER JOIN "TagStory" ts ON t.id = ts."tagId"
       WHERE ts."storyId" = $1

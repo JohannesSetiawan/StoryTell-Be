@@ -35,7 +35,7 @@ export class UserService {
   async login(loginData: UserLoginData): Promise<LoginResponseDto> {
     const { username, password } = loginData;
     const result = await this.pool.query(
-      'SELECT * FROM "User" WHERE username = $1',
+      'SELECT id, username, password, "isAdmin" FROM "User" WHERE username = $1',
       [username],
     );
     const user = result.rows[0];
@@ -60,7 +60,7 @@ export class UserService {
 
   async register(data: UserCreationData): Promise<LoginResponseDto> {
     const userResult = await this.pool.query(
-      'SELECT * FROM "User" WHERE username = $1',
+      'SELECT id FROM "User" WHERE username = $1',
       [data.username],
     );
     if (userResult.rows.length > 0) {

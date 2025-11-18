@@ -111,7 +111,7 @@ export class AdminService {
     
     const stories: AdminAllStoryResponseDto[] = result.rows;
     for (const story of stories) {
-      const chaptersResult = await this.pool.query('SELECT * FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC', [story.id]);
+      const chaptersResult = await this.pool.query('SELECT id, title, content, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC', [story.id]);
       story.chapters = chaptersResult.rows;
       story.author = { username: story['authorUsername'] };
       
