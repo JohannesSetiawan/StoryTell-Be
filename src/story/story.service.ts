@@ -1,5 +1,6 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { Pool } from 'pg';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { StoryDto, Story } from './story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -24,7 +25,7 @@ export type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
 @Injectable()
 export class StoryService {
   constructor(
-    @Inject('DATABASE_POOL') private pool: Pool,
+    @InjectDataSource() private dataSource: DataSource,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private followService: FollowService,
   ) {}
@@ -37,13 +38,13 @@ export class StoryService {
       RETURNING *;
     `;
     const values = [title, description, authorId, isprivate, storyStatus || 'Ongoing'];
-    const result = await this.pool.query(query, values);
-    const story = result.rows[0];
+    const result = await this.dataSource.query(query, values);
+    const story = result[0];
 
     // Assign tags if provided
     if (tagIds && tagIds.length > 0) {
       const insertTagPromises = tagIds.map(tagId =>
-        this.pool.query(
+        this.dataSource.query(
           'INSERT INTO "TagStory" ("tagId", "storyId") VALUES ($1, $2) ON CONFLICT DO NOTHING',
           [tagId, story.id]
         )
@@ -115,8 +116,8 @@ export class StoryService {
     }
 
     const countQuery = `SELECT COUNT(DISTINCT s.id) FROM ${fromClause} WHERE ${whereClause}`;
-    const totalResult = await this.pool.query(countQuery, queryParams);
-    const total = parseInt(totalResult.rows[0].count, 10);
+    const totalResult = await this.dataSource.query(countQuery, queryParams);
+    const total = parseInt(totalResult[0].count, 10);
 
     queryParams.push(take, skip);
     const dataQuery = `
@@ -128,8 +129,8 @@ export class StoryService {
       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `;
 
-    const storiesResult = await this.pool.query(dataQuery, queryParams);
-    const stories = storiesResult.rows.map(story => ({
+    const storiesResult = await this.dataSource.query(dataQuery, queryParams);
+    const stories = storiesResult.map(story => ({
       ...story,
       author: { username: story.authorUsername }
     }));
@@ -144,10 +145,10 @@ export class StoryService {
         WHERE ts."storyId" = ANY($1)
         ORDER BY ts."storyId", t.category ASC, t.name ASC
       `;
-      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      const tagsResult = await this.dataSource.query(tagsQuery, [storyIds]);
       
       // Group tags by story ID
-      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+      const tagsByStoryId = tagsResult.reduce((acc, row) => {
         if (!acc[row.storyId]) {
           acc[row.storyId] = [];
         }
@@ -193,8 +194,8 @@ export class StoryService {
       LEFT JOIN "User" u ON s."authorId" = u.id
       WHERE s.id = $1
     `;
-    const storyResult = await this.pool.query(storyQuery, [id]);
-    const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query(storyQuery, [id]);
+    const story = storyResult[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -203,8 +204,8 @@ export class StoryService {
     story.author = { username: story.authorUsername };
 
     const chaptersQuery = 'SELECT id, title, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC';
-    const chaptersResult = await this.pool.query(chaptersQuery, [id]);
-    story.chapters = chaptersResult.rows;
+    const chaptersResult = await this.dataSource.query(chaptersQuery, [id]);
+    story.chapters = chaptersResult;
 
     const commentsQuery = `
       SELECT sc.*, u.username as "authorUsername"
@@ -213,8 +214,8 @@ export class StoryService {
       WHERE sc."storyId" = $1 AND sc."chapterId" IS NULL
       ORDER BY sc."dateCreated" DESC
     `;
-    const commentsResult = await this.pool.query(commentsQuery, [id]);
-    story.storyComments = commentsResult.rows.map(comment => ({
+    const commentsResult = await this.dataSource.query(commentsQuery, [id]);
+    story.storyComments = commentsResult.map(comment => ({
       ...comment,
       author: { username: comment.authorUsername }
     }));
@@ -227,8 +228,8 @@ export class StoryService {
       WHERE ts."storyId" = $1
       ORDER BY t.category ASC, t.name ASC
     `;
-    const tagsResult = await this.pool.query(tagsQuery, [id]);
-    story.tags = tagsResult.rows.map(row => row.name);
+    const tagsResult = await this.dataSource.query(tagsQuery, [id]);
+    story.tags = tagsResult.map(row => row.name);
 
     this.checkIsPrivateStory(story, readUserId);
 
@@ -284,8 +285,8 @@ export class StoryService {
     }
 
     const countQuery = `SELECT COUNT(DISTINCT s.id) FROM ${fromClause} WHERE ${whereClause}`;
-    const totalResult = await this.pool.query(countQuery, queryParams);
-    const total = parseInt(totalResult.rows[0].count, 10);
+    const totalResult = await this.dataSource.query(countQuery, queryParams);
+    const total = parseInt(totalResult[0].count, 10);
 
     queryParams.push(take, skip);
     const dataQuery = `
@@ -296,8 +297,8 @@ export class StoryService {
       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `;
 
-    const storiesResult = await this.pool.query(dataQuery, queryParams);
-    const stories = storiesResult.rows;
+    const storiesResult = await this.dataSource.query(dataQuery, queryParams);
+    const stories = storiesResult;
     
     // Fetch tags for all stories in a single query to avoid N+1
     if (stories.length > 0) {
@@ -309,10 +310,10 @@ export class StoryService {
         WHERE ts."storyId" = ANY($1)
         ORDER BY ts."storyId", t.category ASC, t.name ASC
       `;
-      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      const tagsResult = await this.dataSource.query(tagsQuery, [storyIds]);
       
       // Group tags by story ID
-      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+      const tagsByStoryId = tagsResult.reduce((acc, row) => {
         if (!acc[row.storyId]) {
           acc[row.storyId] = [];
         }
@@ -350,16 +351,16 @@ export class StoryService {
     tagIds?: string[],
   ): Promise<PaginatedResult<Story>> {
     // First get the user ID from username
-    const userResult = await this.pool.query(
+    const userResult = await this.dataSource.query(
       'SELECT id FROM "User" WHERE username = $1',
       [username],
     );
     
-    if (userResult.rows.length === 0) {
+    if (userResult.length === 0) {
       throw new NotFoundException('User not found');
     }
     
-    const userId = userResult.rows[0].id;
+    const userId = userResult[0].id;
     const pageNumber = Math.max(1, Number(page) || 1);
     const take = Math.max(1, Number(perPage) || 10);
     const skip = (pageNumber - 1) * take;
@@ -398,8 +399,8 @@ export class StoryService {
     }
 
     const countQuery = `SELECT COUNT(DISTINCT s.id) FROM ${fromClause} WHERE ${whereClause}`;
-    const totalResult = await this.pool.query(countQuery, queryParams);
-    const total = parseInt(totalResult.rows[0].count, 10);
+    const totalResult = await this.dataSource.query(countQuery, queryParams);
+    const total = parseInt(totalResult[0].count, 10);
 
     queryParams.push(take, skip);
     const dataQuery = `
@@ -411,8 +412,8 @@ export class StoryService {
       LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}
     `;
 
-    const storiesResult = await this.pool.query(dataQuery, queryParams);
-    const stories = storiesResult.rows.map(story => ({
+    const storiesResult = await this.dataSource.query(dataQuery, queryParams);
+    const stories = storiesResult.map(story => ({
       ...story,
       author: { username: story.authorUsername }
     }));
@@ -427,10 +428,10 @@ export class StoryService {
         WHERE ts."storyId" = ANY($1)
         ORDER BY ts."storyId", t.category ASC, t.name ASC
       `;
-      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      const tagsResult = await this.dataSource.query(tagsQuery, [storyIds]);
       
       // Group tags by story ID
-      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+      const tagsByStoryId = tagsResult.reduce((acc, row) => {
         if (!acc[row.storyId]) {
           acc[row.storyId] = [];
         }
@@ -460,8 +461,8 @@ export class StoryService {
   }
 
   async updateStory(storyId: string, userId: string, data: Partial<StoryDto>): Promise<Story> {
-    const storyResult = await this.pool.query('SELECT id, "authorId", "storyStatus", isprivate FROM "Story" WHERE id = $1', [storyId]);
-    const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query('SELECT id, "authorId", "storyStatus", isprivate FROM "Story" WHERE id = $1', [storyId]);
+    const story = storyResult[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -484,17 +485,17 @@ export class StoryService {
       RETURNING *;
     `;
     const values = [title, description, isprivate, newStatus, storyId];
-    const updatedResult = await this.pool.query(query, values);
+    const updatedResult = await this.dataSource.query(query, values);
 
     // Update tags if provided
     if (tagIds !== undefined) {
       // Delete existing tags
-      await this.pool.query('DELETE FROM "TagStory" WHERE "storyId" = $1', [storyId]);
+      await this.dataSource.query('DELETE FROM "TagStory" WHERE "storyId" = $1', [storyId]);
       
       // Insert new tags
       if (tagIds.length > 0) {
         const insertTagPromises = tagIds.map(tagId =>
-          this.pool.query(
+          this.dataSource.query(
             'INSERT INTO "TagStory" ("tagId", "storyId") VALUES ($1, $2) ON CONFLICT DO NOTHING',
             [tagId, storyId]
           )
@@ -522,12 +523,12 @@ export class StoryService {
     await this.cacheService.del('story-' + storyId.toString());
     const updatedStory = await this.getSpecificStory(storyId, userId);
 
-    return updatedResult.rows[0];
+    return updatedResult[0];
   }
 
   async deleteStory(storyId: string, userId: string): Promise<Story> {
-    const storyResult = await this.pool.query('SELECT id, "authorId" FROM "Story" WHERE id = $1', [storyId]);
-    const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query('SELECT id, "authorId" FROM "Story" WHERE id = $1', [storyId]);
+    const story = storyResult[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -539,11 +540,11 @@ export class StoryService {
       );
     }
 
-    const deletedResult = await this.pool.query('DELETE FROM "Story" WHERE id = $1 RETURNING *', [storyId]);
+    const deletedResult = await this.dataSource.query('DELETE FROM "Story" WHERE id = $1 RETURNING *', [storyId]);
 
     await this.cacheService.del('story-' + storyId.toString());
 
-    return deletedResult.rows[0];
+    return deletedResult[0];
   }
 
   private async createReadHistory(readUserId: string, id: string) {
@@ -553,7 +554,7 @@ export class StoryService {
       ON CONFLICT ("storyId", "userId")
       DO UPDATE SET date = $3;
     `;
-    await this.pool.query(query, [readUserId, id, new Date()]);
+    await this.dataSource.query(query, [readUserId, id, new Date()]);
   }
 
   async getStoryDetails(storyId: string, userId: string) {
@@ -570,21 +571,21 @@ export class StoryService {
       WHERE "storyId" = $1
       GROUP BY "storyId";
     `;
-    const ratingsResult = await this.pool.query(ratingsQuery, [storyId]);
-    const ratings = ratingsResult.rows.length === 0 ? {
+    const ratingsResult = await this.dataSource.query(ratingsQuery, [storyId]);
+    const ratings = ratingsResult.length === 0 ? {
       _count: { rate: 0 },
       _avg: { rate: 0 },
       _sum: { rate: 0 }
     } : {
-      _count: { rate: parseInt(ratingsResult.rows[0].count, 10) },
-      _avg: { rate: parseFloat(ratingsResult.rows[0].avg) },
-      _sum: { rate: parseInt(ratingsResult.rows[0].sum, 10) }
+      _count: { rate: parseInt(ratingsResult[0].count, 10) },
+      _avg: { rate: parseFloat(ratingsResult[0].avg) },
+      _sum: { rate: parseInt(ratingsResult[0].sum, 10) }
     };
 
     // Get user's rating
     const userRatingQuery = 'SELECT id, "authorId", "storyId", rate FROM "Rating" WHERE "storyId" = $1 AND "authorId" = $2';
-    const userRatingResult = await this.pool.query(userRatingQuery, [storyId, userId]);
-    const userRating = userRatingResult.rows.length === 0 ? {
+    const userRatingResult = await this.dataSource.query(userRatingQuery, [storyId, userId]);
+    const userRating = userRatingResult.length === 0 ? {
       id: null,
       authorId: null,
       storyId: null,
@@ -608,26 +609,26 @@ export class StoryService {
       LEFT JOIN "Chapter" c ON rh."chapterId" = c.id
       WHERE rh."userId" = $1 AND rh."storyId" = $2;
     `;
-    const historyResult = await this.pool.query(historyQuery, [userId, storyId]);
-    const history = historyResult.rows[0] ? {
-      id: historyResult.rows[0].id,
-      userId: historyResult.rows[0].userId,
-      storyId: historyResult.rows[0].storyId,
-      chapterId: historyResult.rows[0].chapterId,
-      date: historyResult.rows[0].date,
-      story: { title: historyResult.rows[0].storyTitle },
-      ...(historyResult.rows[0].chapterTitle && {
+    const historyResult = await this.dataSource.query(historyQuery, [userId, storyId]);
+    const history = historyResult[0] ? {
+      id: historyResult[0].id,
+      userId: historyResult[0].userId,
+      storyId: historyResult[0].storyId,
+      chapterId: historyResult[0].chapterId,
+      date: historyResult[0].date,
+      story: { title: historyResult[0].storyTitle },
+      ...(historyResult[0].chapterTitle && {
         chapter: {
-          title: historyResult.rows[0].chapterTitle,
-          order: historyResult.rows[0].chapterOrder
+          title: historyResult[0].chapterTitle,
+          order: historyResult[0].chapterOrder
         }
       })
     } : null;
 
     // Check bookmark status
     const bookmarkQuery = 'SELECT id FROM "Bookmark" WHERE "userId" = $1 AND "storyId" = $2';
-    const bookmarkResult = await this.pool.query(bookmarkQuery, [userId, storyId]);
-    const isBookmarked = bookmarkResult.rows.length > 0;
+    const bookmarkResult = await this.dataSource.query(bookmarkQuery, [userId, storyId]);
+    const isBookmarked = bookmarkResult.length > 0;
 
     // Get story tags (already included in story object)
     const tagsQuery = `
@@ -637,8 +638,8 @@ export class StoryService {
       WHERE ts."storyId" = $1
       ORDER BY t.category ASC, t.name ASC
     `;
-    const tagsResult = await this.pool.query(tagsQuery, [storyId]);
-    const storyTags = tagsResult.rows;
+    const tagsResult = await this.dataSource.query(tagsQuery, [storyId]);
+    const storyTags = tagsResult;
 
     return {
       story,

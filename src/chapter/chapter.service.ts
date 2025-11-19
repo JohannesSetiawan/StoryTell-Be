@@ -1,5 +1,6 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Pool } from 'pg';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { ChapterDto, Chapter } from './chapter.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -10,7 +11,7 @@ import { ActivityType } from '../follow/follow.dto';
 @Injectable()
 export class ChapterService {
   constructor(
-    @Inject('DATABASE_POOL') private pool: Pool,
+    @InjectDataSource() private dataSource: DataSource,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
     private followService: FollowService,
   ) {}
@@ -18,8 +19,8 @@ export class ChapterService {
   async createChapter(data: ChapterDto, userId: string): Promise<Chapter> {
     const { storyId, title, content, order } = data;
 
-    const storyResult = await this.pool.query('SELECT "authorId", isprivate FROM "Story" WHERE id = $1', [storyId]);
-    const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query('SELECT "authorId", isprivate FROM "Story" WHERE id = $1', [storyId]);
+    const story = storyResult[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -35,8 +36,8 @@ export class ChapterService {
       RETURNING *;
     `;
     const values = [storyId, title, content, order];
-    const newChapterResult = await this.pool.query(query, values);
-    const newChapter = newChapterResult.rows[0];
+    const newChapterResult = await this.dataSource.query(query, values);
+    const newChapter = newChapterResult[0];
 
     // Create activity feed entry for new chapter (only if story is not private)
     if (!story.isprivate) {
@@ -62,8 +63,8 @@ export class ChapterService {
 
   async getAllChapterForStory(storyId: string): Promise<Chapter[]> {
     const query = 'SELECT id, title, content, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" ASC';
-    const chaptersResult = await this.pool.query(query, [storyId]);
-    return chaptersResult.rows;
+    const chaptersResult = await this.dataSource.query(query, [storyId]);
+    return chaptersResult;
   }
 
   async getSpecificChapter(id: string, readUserId: string): Promise<Chapter> {
@@ -82,8 +83,8 @@ export class ChapterService {
       JOIN "Story" s ON c."storyId" = s.id
       WHERE c.id = $1
     `;
-    const chapterResult = await this.pool.query(chapterQuery, [id]);
-    const chapter = chapterResult.rows[0];
+    const chapterResult = await this.dataSource.query(chapterQuery, [id]);
+    const chapter = chapterResult[0];
 
     if (!chapter) {
       throw new NotFoundException('Chapter not found!');
@@ -96,8 +97,8 @@ export class ChapterService {
       WHERE cc."chapterId" = $1
       ORDER BY cc."dateCreated" DESC
     `;
-    const commentsResult = await this.pool.query(commentsQuery, [id]);
-    chapter.chapterComments = commentsResult.rows.map(comment => ({
+    const commentsResult = await this.dataSource.query(commentsQuery, [id]);
+    chapter.chapterComments = commentsResult.map(comment => ({
       ...comment,
       author: { username: comment.authorUsername }
     }));
@@ -116,8 +117,8 @@ export class ChapterService {
   async updateChapter(chapterId: string, userId: string, data: Partial<ChapterDto>): Promise<Chapter> {
     const { storyId, title, content, order } = data;
 
-    const storyResult = await this.pool.query('SELECT "authorId" FROM "Story" WHERE id = $1', [storyId]);
-    const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query('SELECT "authorId" FROM "Story" WHERE id = $1', [storyId]);
+    const story = storyResult[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -127,8 +128,8 @@ export class ChapterService {
       throw new ForbiddenException("You don't have permission to update this chapter!");
     }
 
-    const chapterResult = await this.pool.query('SELECT id FROM "Chapter" WHERE id = $1', [chapterId]);
-    if (chapterResult.rows.length === 0) {
+    const chapterResult = await this.dataSource.query('SELECT id FROM "Chapter" WHERE id = $1', [chapterId]);
+    if (chapterResult.length === 0) {
       throw new NotFoundException('Chapter not found!');
     }
 
@@ -139,7 +140,7 @@ export class ChapterService {
       RETURNING *;
     `;
     const values = [title, content, order, chapterId, storyId];
-    const updatedChapterResult = await this.pool.query(query, values);
+    const updatedChapterResult = await this.dataSource.query(query, values);
 
     // Invalidate caches and proactively refresh with updated data
     await this.cacheService.del('chapter-' + chapterId.toString());
@@ -147,19 +148,19 @@ export class ChapterService {
     this.refreshChapterCache(chapterId).catch(() => {});
     this.refreshStoryCache(storyId).catch(() => {});
 
-    return updatedChapterResult.rows[0];
+    return updatedChapterResult[0];
   }
 
   async deleteChapter(chapterId: string, userId: string): Promise<Chapter> {
-    const chapterResult = await this.pool.query('SELECT "storyId" FROM "Chapter" WHERE id = $1', [chapterId]);
-    const chapter = chapterResult.rows[0];
+    const chapterResult = await this.dataSource.query('SELECT "storyId" FROM "Chapter" WHERE id = $1', [chapterId]);
+    const chapter = chapterResult[0];
 
     if (!chapter) {
       throw new NotFoundException('Chapter not found!');
     }
 
-    const storyResult = await this.pool.query('SELECT "authorId" FROM "Story" WHERE id = $1', [chapter.storyId]);
-    const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query('SELECT "authorId" FROM "Story" WHERE id = $1', [chapter.storyId]);
+    const story = storyResult[0];
 
     if (!story) {
       throw new NotFoundException('Story not found!');
@@ -169,14 +170,14 @@ export class ChapterService {
       throw new ForbiddenException("You don't have permission to delete this chapter!");
     }
 
-    const deletedChapterResult = await this.pool.query('DELETE FROM "Chapter" WHERE id = $1 RETURNING *', [chapterId]);
+    const deletedChapterResult = await this.dataSource.query('DELETE FROM "Chapter" WHERE id = $1 RETURNING *', [chapterId]);
 
     // Invalidate caches and proactively refresh story data
     await this.cacheService.del('chapter-' + chapterId.toString());
     await this.cacheService.del('story-' + chapter.storyId.toString());
     this.refreshStoryCache(chapter.storyId.toString()).catch(() => {});
 
-    return deletedChapterResult.rows[0];
+    return deletedChapterResult[0];
   }
 
   private async createReadHistory(readUserId: string, storyId: string, chapterId: string) {
@@ -186,12 +187,12 @@ export class ChapterService {
       ON CONFLICT ("storyId", "userId")
       DO UPDATE SET "chapterId" = $3, date = $4;
     `;
-    await this.pool.query(query, [readUserId, storyId, chapterId, new Date()]);
+    await this.dataSource.query(query, [readUserId, storyId, chapterId, new Date()]);
   }
 
   private async checkIsPrivateStory(readUserId: string, storyId: string){
-    const storyResult = await this.pool.query('SELECT "authorId" FROM "Story" WHERE id = $1 AND isprivate = true', [storyId]);
-    const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query('SELECT "authorId" FROM "Story" WHERE id = $1 AND isprivate = true', [storyId]);
+    const story = storyResult[0];
 
     if(story && story.authorId != readUserId){
       throw new ForbiddenException("You don't have permission to read this chapter!");
@@ -206,26 +207,26 @@ export class ChapterService {
       LEFT JOIN "User" u ON s."authorId" = u.id
       WHERE s.id = $1
     `;
-    const storyResult = await this.pool.query(storyQuery, [storyId]);
-    if (storyResult.rows.length > 0) {
-      const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query(storyQuery, [storyId]);
+    if (storyResult.length > 0) {
+      const story = storyResult[0];
       story.author = { username: story.authorUsername };
       
       // Fetch related data
-      const chaptersResult = await this.pool.query(
+      const chaptersResult = await this.dataSource.query(
         'SELECT id, title, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC',
         [storyId]
       );
-      story.chapters = chaptersResult.rows;
+      story.chapters = chaptersResult;
       
-      const tagsResult = await this.pool.query(
+      const tagsResult = await this.dataSource.query(
         `SELECT t.name FROM "Tag" t
          INNER JOIN "TagStory" ts ON t.id = ts."tagId"
          WHERE ts."storyId" = $1
          ORDER BY t.category ASC, t.name ASC`,
         [storyId]
       );
-      story.tags = tagsResult.rows.map(row => row.name);
+      story.tags = tagsResult.map(row => row.name);
       
       await this.cacheService.set('story-' + storyId, story);
     }
@@ -239,11 +240,11 @@ export class ChapterService {
       JOIN "Story" s ON c."storyId" = s.id
       WHERE c.id = $1
     `;
-    const chapterResult = await this.pool.query(chapterQuery, [chapterId]);
-    if (chapterResult.rows.length > 0) {
-      const chapter = chapterResult.rows[0];
+    const chapterResult = await this.dataSource.query(chapterQuery, [chapterId]);
+    if (chapterResult.length > 0) {
+      const chapter = chapterResult[0];
       
-      const commentsResult = await this.pool.query(
+      const commentsResult = await this.dataSource.query(
         `SELECT cc.*, u.username as "authorUsername"
          FROM "StoryComment" cc
          LEFT JOIN "User" u ON cc."authorId" = u.id
@@ -251,7 +252,7 @@ export class ChapterService {
          ORDER BY cc."dateCreated" DESC`,
         [chapterId]
       );
-      chapter.chapterComments = commentsResult.rows.map(comment => ({
+      chapter.chapterComments = commentsResult.map(comment => ({
         ...comment,
         author: { username: comment.authorUsername }
       }));

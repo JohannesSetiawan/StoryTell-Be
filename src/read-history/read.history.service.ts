@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { ReadHistoryResponseDto, SpecificReadHistoryResponseDto } from './read.history.dto';
 
 @Injectable()
 export class ReadHistoryService {
   constructor(
-    @Inject('DATABASE_POOL') private pool: Pool,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
 
   async getHistories(userId: string): Promise<ReadHistoryResponseDto[]> {
@@ -25,8 +26,8 @@ export class ReadHistoryService {
       WHERE rh."userId" = $1
       ORDER BY rh.date DESC;
     `;
-    const result = await this.pool.query(query, [userId]);
-    return result.rows.map(history => ({
+    const result = await this.dataSource.query(query, [userId]);
+    return result.map(history => ({
       id: history.id,
       userId: history.userId,
       storyId: history.storyId,
@@ -58,8 +59,8 @@ export class ReadHistoryService {
       LEFT JOIN "Chapter" c ON rh."chapterId" = c.id
       WHERE rh."userId" = $1 AND rh."storyId" = $2;
     `;
-    const result = await this.pool.query(query, [userId, storyId]);
-    const history = result.rows[0];
+    const result = await this.dataSource.query(query, [userId, storyId]);
+    const history = result[0];
     if (history) {
       return {
         id: history.id,

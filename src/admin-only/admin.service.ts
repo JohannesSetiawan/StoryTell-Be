@@ -1,11 +1,12 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Injectable } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { AdminAllChapterResponseDto, AdminAllCommentResponseDto, AdminAllStoryResponseDto, AdminAllUserResponseDto, ChapterFilterDto, CommentFilterDto, PaginatedResponseDto, StoryFilterDto, UserFilterDto } from './admin.dto';
 
 @Injectable()
 export class AdminService {
   constructor(
-    @Inject('DATABASE_POOL') private pool: Pool,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
 
   async getAllUser(filters: UserFilterDto): Promise<PaginatedResponseDto<AdminAllUserResponseDto>>{
@@ -33,8 +34,8 @@ export class AdminService {
     
     // Get total count
     const countQuery = `SELECT COUNT(*) FROM "User" ${whereClause}`;
-    const countResult = await this.pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    const countResult = await this.dataSource.query(countQuery, params);
+    const total = parseInt(countResult[0].count);
     
     // Get paginated data
     const query = `
@@ -44,12 +45,12 @@ export class AdminService {
       ORDER BY "dateCreated" DESC 
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    const result = await this.pool.query(query, [...params, limit, offset]);
+    const result = await this.dataSource.query(query, [...params, limit, offset]);
     
     const totalPages = Math.ceil(total / limit);
     
     return {
-      data: result.rows,
+      data: result,
       total,
       page,
       limit,
@@ -95,8 +96,8 @@ export class AdminService {
       LEFT JOIN "User" u ON s."authorId" = u.id
       ${whereClause}
     `;
-    const countResult = await this.pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    const countResult = await this.dataSource.query(countQuery, params);
+    const total = parseInt(countResult[0].count);
     
     // Get paginated data
     const query = `
@@ -107,9 +108,9 @@ export class AdminService {
       ORDER BY s."dateCreated" DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    const result = await this.pool.query(query, [...params, limit, offset]);
+    const result = await this.dataSource.query(query, [...params, limit, offset]);
     
-    const stories: AdminAllStoryResponseDto[] = result.rows;
+    const stories: AdminAllStoryResponseDto[] = result;
     
     // Optimize: Batch fetch chapters for all stories to avoid N+1 query
     if (stories.length > 0) {
@@ -122,10 +123,10 @@ export class AdminService {
         WHERE "storyId" = ANY($1)
         ORDER BY "storyId", "order" ASC
       `;
-      const chaptersResult = await this.pool.query(chaptersQuery, [storyIds]);
+      const chaptersResult = await this.dataSource.query(chaptersQuery, [storyIds]);
       
       // Group chapters by storyId
-      const chaptersByStoryId = chaptersResult.rows.reduce((acc, chapter) => {
+      const chaptersByStoryId = chaptersResult.reduce((acc, chapter) => {
         if (!acc[chapter.storyId]) {
           acc[chapter.storyId] = [];
         }
@@ -141,10 +142,10 @@ export class AdminService {
         WHERE ts."storyId" = ANY($1)
         ORDER BY ts."storyId", t.category ASC, t.name ASC
       `;
-      const tagsResult = await this.pool.query(tagsQuery, [storyIds]);
+      const tagsResult = await this.dataSource.query(tagsQuery, [storyIds]);
       
       // Group tags by storyId
-      const tagsByStoryId = tagsResult.rows.reduce((acc, row) => {
+      const tagsByStoryId = tagsResult.reduce((acc, row) => {
         if (!acc[row.storyId]) {
           acc[row.storyId] = [];
         }
@@ -210,8 +211,8 @@ export class AdminService {
       LEFT JOIN "User" u ON s."authorId" = u.id
       ${whereClause}
     `;
-    const countResult = await this.pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    const countResult = await this.dataSource.query(countQuery, params);
+    const total = parseInt(countResult[0].count);
     
     // Get paginated data
     const query = `
@@ -223,9 +224,9 @@ export class AdminService {
       ORDER BY c."dateCreated" DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    const result = await this.pool.query(query, [...params, limit, offset]);
+    const result = await this.dataSource.query(query, [...params, limit, offset]);
     
-    const chapters = result.rows.map(chapter => ({
+    const chapters = result.map(chapter => ({
       ...chapter,
       story: {
         title: chapter.storyTitle,
@@ -293,8 +294,8 @@ export class AdminService {
       LEFT JOIN "Chapter" c ON sc."chapterId" = c.id
       ${whereClause}
     `;
-    const countResult = await this.pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    const countResult = await this.dataSource.query(countQuery, params);
+    const total = parseInt(countResult[0].count);
     
     // Get paginated data with joined user and story info
     const query = `
@@ -311,12 +312,12 @@ export class AdminService {
       ORDER BY sc."dateCreated" DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
-    const result = await this.pool.query(query, [...params, limit, offset]);
+    const result = await this.dataSource.query(query, [...params, limit, offset]);
     
     const totalPages = Math.ceil(total / limit);
     
     return {
-      data: result.rows,
+      data: result,
       total,
       page,
       limit,

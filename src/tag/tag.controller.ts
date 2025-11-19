@@ -19,7 +19,8 @@ import { CreateTagDto, UpdateTagDto, AssignTagsDto, TagFilterDto } from './tag.d
 import { JwtGuard } from '../user/jwt.guard';
 import { UserTokenPayload } from '../user/user.dto';
 import { ApiOperation, ApiBearerAuth, ApiResponse, ApiTags, ApiQuery, ApiParam } from '@nestjs/swagger';
-import { Pool } from 'pg';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { Inject } from '@nestjs/common';
 
 @ApiTags('tags')
@@ -27,7 +28,7 @@ import { Inject } from '@nestjs/common';
 export class TagController {
   constructor(
     private readonly tagService: TagService,
-    @Inject('DATABASE_POOL') private pool: Pool,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
 
   // ========== ADMIN ENDPOINTS ==========
@@ -163,16 +164,16 @@ export class TagController {
     const user: UserTokenPayload = request.user;
 
     // Check if user owns the story
-    const storyResult = await this.pool.query(
+    const storyResult = await this.dataSource.query(
       'SELECT * FROM "Story" WHERE id = $1',
       [storyId],
     );
 
-    if (storyResult.rows.length === 0) {
+    if (storyResult.length === 0) {
       return response.status(404).json({ message: 'Story not found' });
     }
 
-    if (storyResult.rows[0].authorId !== user.id) {
+    if (storyResult[0].authorId !== user.id) {
       throw new ForbiddenException('You can only assign tags to your own stories');
     }
 
@@ -199,16 +200,16 @@ export class TagController {
     const user: UserTokenPayload = request.user;
 
     // Check if user owns the story
-    const storyResult = await this.pool.query(
+    const storyResult = await this.dataSource.query(
       'SELECT * FROM "Story" WHERE id = $1',
       [storyId],
     );
 
-    if (storyResult.rows.length === 0) {
+    if (storyResult.length === 0) {
       return response.status(404).json({ message: 'Story not found' });
     }
 
-    if (storyResult.rows[0].authorId !== user.id) {
+    if (storyResult[0].authorId !== user.id) {
       throw new ForbiddenException('You can only remove tags from your own stories');
     }
 
@@ -233,16 +234,16 @@ export class TagController {
     const user: UserTokenPayload = request.user;
 
     // Check if user owns the story
-    const storyResult = await this.pool.query(
+    const storyResult = await this.dataSource.query(
       'SELECT * FROM "Story" WHERE id = $1',
       [storyId],
     );
 
-    if (storyResult.rows.length === 0) {
+    if (storyResult.length === 0) {
       return response.status(404).json({ message: 'Story not found' });
     }
 
-    if (storyResult.rows[0].authorId !== user.id) {
+    if (storyResult[0].authorId !== user.id) {
       throw new ForbiddenException('You can only remove tags from your own stories');
     }
 

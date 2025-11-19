@@ -1,13 +1,14 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
-import { Pool } from 'pg';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { StoryCommentDto, StoryComment } from './story.comment.dto';
 
 @Injectable()
 export class StoryCommentService {
   constructor(
-    @Inject('DATABASE_POOL') private pool: Pool,
+    @InjectDataSource() private dataSource: DataSource,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
   ) {}
 
@@ -23,13 +24,13 @@ export class StoryCommentService {
       RETURNING *;
     `;
     const values = [storyId, content, userId, parentId];
-    const result = await this.pool.query(query, values);
+    const result = await this.dataSource.query(query, values);
 
     // Invalidate cache and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
     this.refreshStoryCache(storyId).catch(() => {});
 
-    return result.rows[0];
+    return result[0];
   }
 
   async createChapterComment(
@@ -45,7 +46,7 @@ export class StoryCommentService {
       RETURNING *;
     `;
     const values = [storyId, chapterId, content, userId, parentId];
-    const result = await this.pool.query(query, values);
+    const result = await this.dataSource.query(query, values);
 
     // Invalidate caches and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
@@ -53,7 +54,7 @@ export class StoryCommentService {
     this.refreshStoryCache(storyId).catch(() => {});
     this.refreshChapterCache(chapterId).catch(() => {});
 
-    return result.rows[0];
+    return result[0];
   }
 
   async getAllStoryCommentForStory(storyId: string): Promise<StoryComment[]> {
@@ -64,8 +65,8 @@ export class StoryCommentService {
       WHERE sc."storyId" = $1
       ORDER BY sc."dateCreated" ASC;
     `;
-    const result = await this.pool.query(query, [storyId]);
-    return result.rows.map(comment => ({
+    const result = await this.dataSource.query(query, [storyId]);
+    return result.map(comment => ({
       ...comment,
       author: { username: comment.authorUsername }
     }));
@@ -89,8 +90,8 @@ export class StoryCommentService {
       FROM "StoryComment"
       WHERE "storyId" = $1 AND "chapterId" IS NULL AND "parentId" IS NULL
     `;
-    const countResult = await this.pool.query(countQuery, [storyId]);
-    const total = parseInt(countResult.rows[0].total, 10);
+    const countResult = await this.dataSource.query(countQuery, [storyId]);
+    const total = parseInt(countResult[0].total, 10);
 
     // Get paginated root comments
     const rootCommentsQuery = `
@@ -101,8 +102,8 @@ export class StoryCommentService {
       ORDER BY sc."dateCreated" DESC
       LIMIT $2 OFFSET $3
     `;
-    const rootResult = await this.pool.query(rootCommentsQuery, [storyId, limit, offset]);
-    const rootComments = rootResult.rows.map(comment => ({
+    const rootResult = await this.dataSource.query(rootCommentsQuery, [storyId, limit, offset]);
+    const rootComments = rootResult.map(comment => ({
       ...comment,
       author: { username: comment.authorUsername }
     }));
@@ -127,8 +128,8 @@ export class StoryCommentService {
         SELECT * FROM comment_tree
         ORDER BY "dateCreated" ASC
       `;
-      const repliesResult = await this.pool.query(repliesQuery, [rootCommentIds]);
-      const replies = repliesResult.rows.map(comment => ({
+      const repliesResult = await this.dataSource.query(repliesQuery, [rootCommentIds]);
+      const replies = repliesResult.map(comment => ({
         ...comment,
         author: { username: comment.authorUsername }
       }));
@@ -170,8 +171,8 @@ export class StoryCommentService {
       FROM "StoryComment"
       WHERE "storyId" = $1 AND "chapterId" = $2 AND "parentId" IS NULL
     `;
-    const countResult = await this.pool.query(countQuery, [storyId, chapterId]);
-    const total = parseInt(countResult.rows[0].total, 10);
+    const countResult = await this.dataSource.query(countQuery, [storyId, chapterId]);
+    const total = parseInt(countResult[0].total, 10);
 
     // Get paginated root comments
     const rootCommentsQuery = `
@@ -182,8 +183,8 @@ export class StoryCommentService {
       ORDER BY sc."dateCreated" DESC
       LIMIT $3 OFFSET $4
     `;
-    const rootResult = await this.pool.query(rootCommentsQuery, [storyId, chapterId, limit, offset]);
-    const rootComments = rootResult.rows.map(comment => ({
+    const rootResult = await this.dataSource.query(rootCommentsQuery, [storyId, chapterId, limit, offset]);
+    const rootComments = rootResult.map(comment => ({
       ...comment,
       author: { username: comment.authorUsername }
     }));
@@ -208,8 +209,8 @@ export class StoryCommentService {
         SELECT * FROM comment_tree
         ORDER BY "dateCreated" ASC
       `;
-      const repliesResult = await this.pool.query(repliesQuery, [rootCommentIds]);
-      const replies = repliesResult.rows.map(comment => ({
+      const repliesResult = await this.dataSource.query(repliesQuery, [rootCommentIds]);
+      const replies = repliesResult.map(comment => ({
         ...comment,
         author: { username: comment.authorUsername }
       }));
@@ -234,8 +235,8 @@ export class StoryCommentService {
 
   async getSpecificCommentForStory(commentId: string): Promise<StoryComment> {
     const query = 'SELECT id, content, "authorId", "storyId", "chapterId", "parentId", "dateCreated" FROM "StoryComment" WHERE id = $1';
-    const result = await this.pool.query(query, [commentId]);
-    return result.rows[0];
+    const result = await this.dataSource.query(query, [commentId]);
+    return result[0];
   }
 
   async updateComment(
@@ -244,8 +245,8 @@ export class StoryCommentService {
     storyId: string,
     data: StoryCommentDto,
   ): Promise<StoryComment> {
-    const commentResult = await this.pool.query('SELECT id, "authorId", "chapterId" FROM "StoryComment" WHERE id = $1 AND "storyId" = $2', [commentId, storyId]);
-    const comment = commentResult.rows[0];
+    const commentResult = await this.dataSource.query('SELECT id, "authorId", "chapterId" FROM "StoryComment" WHERE id = $1 AND "storyId" = $2', [commentId, storyId]);
+    const comment = commentResult[0];
 
     if (!comment) {
       throw new NotFoundException('Comment not found!');
@@ -265,7 +266,7 @@ export class StoryCommentService {
       RETURNING *;
     `;
     const values = [content, commentId, userId, storyId];
-    const updatedResult = await this.pool.query(query, values);
+    const updatedResult = await this.dataSource.query(query, values);
 
     // Invalidate caches and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
@@ -275,12 +276,12 @@ export class StoryCommentService {
       this.refreshChapterCache(comment.chapterId.toString()).catch(() => {});
     }
 
-    return updatedResult.rows[0];
+    return updatedResult[0];
   }
 
   async deleteComment(commentId: string, userId: string, storyId: string): Promise<StoryComment> {
-    const commentResult = await this.pool.query('SELECT id, "authorId", "chapterId" FROM "StoryComment" WHERE id = $1', [commentId]);
-    const comment = commentResult.rows[0];
+    const commentResult = await this.dataSource.query('SELECT id, "authorId", "chapterId" FROM "StoryComment" WHERE id = $1', [commentId]);
+    const comment = commentResult[0];
 
     if (!comment) {
       throw new NotFoundException('Comment not found!');
@@ -292,7 +293,7 @@ export class StoryCommentService {
       );
     }
 
-    const deletedResult = await this.pool.query('DELETE FROM "StoryComment" WHERE id = $1 AND "authorId" = $2 RETURNING *', [commentId, userId]);
+    const deletedResult = await this.dataSource.query('DELETE FROM "StoryComment" WHERE id = $1 AND "authorId" = $2 RETURNING *', [commentId, userId]);
 
     // Invalidate caches and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
@@ -302,7 +303,7 @@ export class StoryCommentService {
       this.refreshChapterCache(comment.chapterId.toString()).catch(() => {});
     }
 
-    return deletedResult.rows[0];
+    return deletedResult[0];
   }
 
   private async refreshStoryCache(storyId: string): Promise<void> {
@@ -313,19 +314,19 @@ export class StoryCommentService {
       LEFT JOIN "User" u ON s."authorId" = u.id
       WHERE s.id = $1
     `;
-    const storyResult = await this.pool.query(storyQuery, [storyId]);
-    if (storyResult.rows.length > 0) {
-      const story = storyResult.rows[0];
+    const storyResult = await this.dataSource.query(storyQuery, [storyId]);
+    if (storyResult.length > 0) {
+      const story = storyResult[0];
       story.author = { username: story.authorUsername };
       
       // Fetch related data
-      const chaptersResult = await this.pool.query(
+      const chaptersResult = await this.dataSource.query(
         'SELECT id, title, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC',
         [storyId]
       );
-      story.chapters = chaptersResult.rows;
+      story.chapters = chaptersResult;
       
-      const commentsResult = await this.pool.query(
+      const commentsResult = await this.dataSource.query(
         `SELECT sc.*, u.username as "authorUsername"
          FROM "StoryComment" sc
          LEFT JOIN "User" u ON sc."authorId" = u.id
@@ -333,19 +334,19 @@ export class StoryCommentService {
          ORDER BY sc."dateCreated" DESC`,
         [storyId]
       );
-      story.storyComments = commentsResult.rows.map(comment => ({
+      story.storyComments = commentsResult.map(comment => ({
         ...comment,
         author: { username: comment.authorUsername }
       }));
       
-      const tagsResult = await this.pool.query(
+      const tagsResult = await this.dataSource.query(
         `SELECT t.name FROM "Tag" t
          INNER JOIN "TagStory" ts ON t.id = ts."tagId"
          WHERE ts."storyId" = $1
          ORDER BY t.category ASC, t.name ASC`,
         [storyId]
       );
-      story.tags = tagsResult.rows.map(row => row.name);
+      story.tags = tagsResult.map(row => row.name);
       
       await this.cacheService.set('story-' + storyId, story);
     }
@@ -359,11 +360,11 @@ export class StoryCommentService {
       JOIN "Story" s ON c."storyId" = s.id
       WHERE c.id = $1
     `;
-    const chapterResult = await this.pool.query(chapterQuery, [chapterId]);
-    if (chapterResult.rows.length > 0) {
-      const chapter = chapterResult.rows[0];
+    const chapterResult = await this.dataSource.query(chapterQuery, [chapterId]);
+    if (chapterResult.length > 0) {
+      const chapter = chapterResult[0];
       
-      const commentsResult = await this.pool.query(
+      const commentsResult = await this.dataSource.query(
         `SELECT cc.*, u.username as "authorUsername"
          FROM "StoryComment" cc
          LEFT JOIN "User" u ON cc."authorId" = u.id
@@ -371,7 +372,7 @@ export class StoryCommentService {
          ORDER BY cc."dateCreated" DESC`,
         [chapterId]
       );
-      chapter.chapterComments = commentsResult.rows.map(comment => ({
+      chapter.chapterComments = commentsResult.map(comment => ({
         ...comment,
         author: { username: comment.authorUsername }
       }));

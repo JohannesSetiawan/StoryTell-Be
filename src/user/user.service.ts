@@ -1,19 +1,20 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { sign } from 'jsonwebtoken';
 import { LoginResponseDto, UserCreationData, UserLoginData, UpdateUserData, UserResponseDto, UserTokenPayload } from './user.dto';
 
 @Injectable()
 export class UserService {
-  constructor(@Inject('DATABASE_POOL') private pool: Pool) {}
+  constructor(@InjectDataSource() private dataSource: DataSource) {}
 
   async user(userId: string): Promise<UserResponseDto> {
-    const result = await this.pool.query(
+    const result = await this.dataSource.query(
       'SELECT id, username, description, "dateCreated", "isAdmin" FROM "User" WHERE id = $1',
       [userId],
     );
-    const user = result.rows[0];
+    const user = result[0];
     if (!user) {
       return null;
     }
@@ -21,11 +22,11 @@ export class UserService {
   }
 
   async getUserByUsername(username: string): Promise<UserResponseDto> {
-    const result = await this.pool.query(
+    const result = await this.dataSource.query(
       'SELECT id, username, description, "dateCreated", "isAdmin" FROM "User" WHERE username = $1',
       [username],
     );
-    const user = result.rows[0];
+    const user = result[0];
     if (!user) {
       throw new Error('User not found');
     }
@@ -34,11 +35,11 @@ export class UserService {
 
   async login(loginData: UserLoginData): Promise<LoginResponseDto> {
     const { username, password } = loginData;
-    const result = await this.pool.query(
+    const result = await this.dataSource.query(
       'SELECT id, username, password, "isAdmin" FROM "User" WHERE username = $1',
       [username],
     );
-    const user = result.rows[0];
+    const user = result[0];
 
     if (!user) {
       throw new Error("You haven't registered yet!");
@@ -59,23 +60,23 @@ export class UserService {
   }
 
   async register(data: UserCreationData): Promise<LoginResponseDto> {
-    const userResult = await this.pool.query(
+    const userResult = await this.dataSource.query(
       'SELECT id FROM "User" WHERE username = $1',
       [data.username],
     );
-    if (userResult.rows.length > 0) {
+    if (userResult.length > 0) {
       throw new Error('Username is already registered');
     }
 
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(data.password, salt);
     
-    const newUserResult = await this.pool.query(
+    const newUserResult = await this.dataSource.query(
       'INSERT INTO "User" (username, password, description) VALUES ($1, $2, $3) RETURNING id, username, description, "isAdmin"',
       [data.username, hashedPassword],
     );
     
-    const user = newUserResult.rows[0];
+    const user = newUserResult[0];
     const token = sign(
       { username: user.username, id: user.id, isAdmin: user.isAdmin },
       process.env.SECRET_KEY,
@@ -119,12 +120,12 @@ export class UserService {
     values.push(userId);
     const query = `UPDATE "User" SET ${updates.join(', ')} WHERE id = $${valueIndex} RETURNING id, username, description, "dateCreated", "isAdmin"`;
 
-    const result = await this.pool.query(query, values);
-    return result.rows[0];
+    const result = await this.dataSource.query(query, values);
+    return result[0];
   }
 
   async deleteUser(userId: string): Promise<UserResponseDto> {
-    const result = await this.pool.query('DELETE FROM "User" WHERE id = $1 RETURNING id, username, description, "dateCreated", "isAdmin"', [userId]);
-    return result.rows[0];
+    const result = await this.dataSource.query('DELETE FROM "User" WHERE id = $1 RETURNING id, username, description, "dateCreated", "isAdmin"', [userId]);
+    return result[0];
   }
 }

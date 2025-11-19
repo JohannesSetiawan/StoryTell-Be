@@ -5,7 +5,8 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { Pool } from 'pg';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import {
   Follow,
   FollowerWithUser,
@@ -29,7 +30,7 @@ export interface PaginatedActivityFeed {
 
 @Injectable()
 export class FollowService {
-  constructor(@Inject('DATABASE_POOL') private pool: Pool) {}
+  constructor(@InjectDataSource() private dataSource: DataSource) {}
 
   async followUser(followerId: string, followingId: string): Promise<Follow> {
     if (followerId === followingId) {
@@ -37,12 +38,12 @@ export class FollowService {
     }
 
     // Check if the user to follow exists
-    const userResult = await this.pool.query(
+    const userResult = await this.dataSource.query(
       'SELECT id FROM "User" WHERE id = $1',
       [followingId],
     );
 
-    if (userResult.rows.length === 0) {
+    if (userResult.length === 0) {
       throw new NotFoundException('User not found');
     }
 
@@ -52,8 +53,8 @@ export class FollowService {
         VALUES ($1, $2)
         RETURNING *;
       `;
-      const result = await this.pool.query(query, [followerId, followingId]);
-      return result.rows[0];
+      const result = await this.dataSource.query(query, [followerId, followingId]);
+      return result[0];
     } catch (error: any) {
       if (error.code === '23505') {
         // Unique constraint violation
@@ -72,9 +73,9 @@ export class FollowService {
       WHERE "followerId" = $1 AND "followingId" = $2
       RETURNING *;
     `;
-    const result = await this.pool.query(query, [followerId, followingId]);
+    const result = await this.dataSource.query(query, [followerId, followingId]);
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       throw new NotFoundException('Follow relationship not found');
     }
 
@@ -96,9 +97,9 @@ export class FollowService {
       WHERE f."followingId" = $1
       ORDER BY f."followedAt" DESC;
     `;
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.dataSource.query(query, [userId]);
 
-    return result.rows.map((row) => ({
+    return result.map((row) => ({
       id: row.id,
       followerId: row.followerId,
       followingId: row.followingId,
@@ -126,9 +127,9 @@ export class FollowService {
       WHERE f."followerId" = $1
       ORDER BY f."followedAt" DESC;
     `;
-    const result = await this.pool.query(query, [userId]);
+    const result = await this.dataSource.query(query, [userId]);
 
-    return result.rows.map((row) => ({
+    return result.map((row) => ({
       id: row.id,
       followerId: row.followerId,
       followingId: row.followingId,
@@ -149,9 +150,9 @@ export class FollowService {
       SELECT id FROM "Follow"
       WHERE "followerId" = $1 AND "followingId" = $2;
     `;
-    const result = await this.pool.query(query, [followerId, followingId]);
+    const result = await this.dataSource.query(query, [followerId, followingId]);
 
-    return { isFollowing: result.rows.length > 0 };
+    return { isFollowing: result.length > 0 };
   }
 
   async getFollowStats(userId: string): Promise<FollowStats> {
@@ -165,13 +166,13 @@ export class FollowService {
     `;
 
     const [followersResult, followingResult] = await Promise.all([
-      this.pool.query(followersQuery, [userId]),
-      this.pool.query(followingQuery, [userId]),
+      this.dataSource.query(followersQuery, [userId]),
+      this.dataSource.query(followingQuery, [userId]),
     ]);
 
     return {
-      followersCount: parseInt(followersResult.rows[0].count, 10),
-      followingCount: parseInt(followingResult.rows[0].count, 10),
+      followersCount: parseInt(followersResult[0].count, 10),
+      followingCount: parseInt(followingResult[0].count, 10),
     };
   }
 
@@ -191,8 +192,8 @@ export class FollowService {
       INNER JOIN "Follow" f ON af."userId" = f."followingId"
       WHERE f."followerId" = $1;
     `;
-    const totalResult = await this.pool.query(countQuery, [userId]);
-    const total = parseInt(totalResult.rows[0].count, 10);
+    const totalResult = await this.dataSource.query(countQuery, [userId]);
+    const total = parseInt(totalResult[0].count, 10);
 
     const dataQuery = `
       SELECT 
@@ -220,9 +221,9 @@ export class FollowService {
       LIMIT $2 OFFSET $3;
     `;
 
-    const result = await this.pool.query(dataQuery, [userId, take, skip]);
+    const result = await this.dataSource.query(dataQuery, [userId, take, skip]);
 
-    const activities: ActivityFeed[] = result.rows.map((row) => ({
+    const activities: ActivityFeed[] = result.map((row) => ({
       id: row.id,
       userId: row.userId,
       activityType: row.activityType as ActivityType,
@@ -276,7 +277,7 @@ export class FollowService {
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *;
     `;
-    const result = await this.pool.query(query, [
+    const result = await this.dataSource.query(query, [
       userId,
       activityType,
       storyId || null,
@@ -284,6 +285,6 @@ export class FollowService {
       metadata ? JSON.stringify(metadata) : null,
     ]);
 
-    return result.rows[0];
+    return result[0];
   }
 }

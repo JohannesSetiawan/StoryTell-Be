@@ -1,5 +1,6 @@
-import { Injectable, Inject, ConflictException, NotFoundException } from '@nestjs/common';
-import { Pool } from 'pg';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { BookmarkItem } from './bookmark.dto';
 
 export interface PaginatedResult<T> {
@@ -16,28 +17,28 @@ export interface PaginatedResult<T> {
 
 @Injectable()
 export class BookmarkService {
-  constructor(@Inject('DATABASE_POOL') private pool: Pool) {}
+  constructor(@InjectDataSource() private dataSource: DataSource) {}
 
   async createBookmark(userId: string, storyId: string): Promise<void> {
-    const storyCheck = await this.pool.query(
+    const storyCheck = await this.dataSource.query(
       'SELECT id FROM "Story" WHERE id = $1',
       [storyId]
     );
 
-    if (storyCheck.rows.length === 0) {
+    if (storyCheck.length === 0) {
       throw new NotFoundException('Story not found');
     }
 
-    const existingBookmark = await this.pool.query(
+    const existingBookmark = await this.dataSource.query(
       'SELECT id FROM "Bookmark" WHERE "userId" = $1 AND "storyId" = $2',
       [userId, storyId]
     );
 
-    if (existingBookmark.rows.length > 0) {
+    if (existingBookmark.length > 0) {
       throw new ConflictException('Story already bookmarked');
     }
 
-    await this.pool.query(
+    await this.dataSource.query(
       'INSERT INTO "Bookmark" ("userId", "storyId") VALUES ($1, $2)',
       [userId, storyId]
     );
@@ -57,8 +58,8 @@ export class BookmarkService {
       FROM "Bookmark" b
       WHERE b."userId" = $1
     `;
-    const totalResult = await this.pool.query(countQuery, [userId]);
-    const total = parseInt(totalResult.rows[0].count, 10);
+    const totalResult = await this.dataSource.query(countQuery, [userId]);
+    const total = parseInt(totalResult[0].count, 10);
 
     const dataQuery = `
       SELECT 
@@ -81,8 +82,8 @@ export class BookmarkService {
       LIMIT $2 OFFSET $3
     `;
 
-    const bookmarksResult = await this.pool.query(dataQuery, [userId, take, skip]);
-    const bookmarks = bookmarksResult.rows.map(row => ({
+    const bookmarksResult = await this.dataSource.query(dataQuery, [userId, take, skip]);
+    const bookmarks = bookmarksResult.map(row => ({
       storyId: row.storyId,
       title: row.title,
       authorName: row.authorName,
@@ -106,21 +107,21 @@ export class BookmarkService {
   }
 
   async deleteBookmark(userId: string, storyId: string): Promise<void> {
-    const result = await this.pool.query(
+    const result = await this.dataSource.query(
       'DELETE FROM "Bookmark" WHERE "userId" = $1 AND "storyId" = $2 RETURNING id',
       [userId, storyId]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       throw new NotFoundException('Bookmark not found');
     }
   }
 
   async checkBookmarkStatus(userId: string, storyId: string): Promise<boolean> {
-    const result = await this.pool.query(
+    const result = await this.dataSource.query(
       'SELECT id FROM "Bookmark" WHERE "userId" = $1 AND "storyId" = $2',
       [userId, storyId]
     );
-    return result.rows.length > 0;
+    return result.length > 0;
   }
 }
