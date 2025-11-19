@@ -481,7 +481,9 @@ export class StoryService {
       }
     }
 
+    // Invalidate cache and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
+    const updatedStory = await this.getSpecificStory(storyId, userId);
 
     return updatedResult.rows[0];
   }

@@ -40,7 +40,10 @@ export class RatingService {
     const values = [data.rate, storyId, userId];
     const newRatingResult = await this.pool.query(query, values);
 
+    // Invalidate cache and proactively refresh with updated story data
     await this.cacheService.del('story-' + storyId.toString());
+    // Fetch and cache the updated story data in the background
+    this.refreshStoryCache(storyId).catch(() => {});
 
     return newRatingResult.rows[0];
   }
@@ -125,5 +128,38 @@ export class RatingService {
 
     const deletedRatingResult = await this.pool.query('DELETE FROM "Rating" WHERE id = $1 RETURNING *', [ratingId]);
     return deletedRatingResult.rows[0];
+  }
+
+  private async refreshStoryCache(storyId: string): Promise<void> {
+    // Fetch updated story data and warm the cache
+    const storyQuery = `
+      SELECT s.*, u.username as "authorUsername"
+      FROM "Story" s
+      LEFT JOIN "User" u ON s."authorId" = u.id
+      WHERE s.id = $1
+    `;
+    const storyResult = await this.pool.query(storyQuery, [storyId]);
+    if (storyResult.rows.length > 0) {
+      const story = storyResult.rows[0];
+      story.author = { username: story.authorUsername };
+      
+      // Fetch related data
+      const chaptersResult = await this.pool.query(
+        'SELECT id, title, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC',
+        [storyId]
+      );
+      story.chapters = chaptersResult.rows;
+      
+      const tagsResult = await this.pool.query(
+        `SELECT t.name FROM "Tag" t
+         INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+         WHERE ts."storyId" = $1
+         ORDER BY t.category ASC, t.name ASC`,
+        [storyId]
+      );
+      story.tags = tagsResult.rows.map(row => row.name);
+      
+      await this.cacheService.set('story-' + storyId, story);
+    }
   }
 }

@@ -25,7 +25,9 @@ export class StoryCommentService {
     const values = [storyId, content, userId, parentId];
     const result = await this.pool.query(query, values);
 
+    // Invalidate cache and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
+    this.refreshStoryCache(storyId).catch(() => {});
 
     return result.rows[0];
   }
@@ -45,8 +47,11 @@ export class StoryCommentService {
     const values = [storyId, chapterId, content, userId, parentId];
     const result = await this.pool.query(query, values);
 
+    // Invalidate caches and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
     await this.cacheService.del('chapter-' + chapterId.toString());
+    this.refreshStoryCache(storyId).catch(() => {});
+    this.refreshChapterCache(chapterId).catch(() => {});
 
     return result.rows[0];
   }
@@ -262,9 +267,12 @@ export class StoryCommentService {
     const values = [content, commentId, userId, storyId];
     const updatedResult = await this.pool.query(query, values);
 
+    // Invalidate caches and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
+    this.refreshStoryCache(storyId).catch(() => {});
     if (comment.chapterId) {
       await this.cacheService.del('chapter-' + comment.chapterId.toString());
+      this.refreshChapterCache(comment.chapterId.toString()).catch(() => {});
     }
 
     return updatedResult.rows[0];
@@ -286,11 +294,89 @@ export class StoryCommentService {
 
     const deletedResult = await this.pool.query('DELETE FROM "StoryComment" WHERE id = $1 AND "authorId" = $2 RETURNING *', [commentId, userId]);
 
+    // Invalidate caches and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
+    this.refreshStoryCache(storyId).catch(() => {});
     if (comment.chapterId) {
       await this.cacheService.del('chapter-' + comment.chapterId.toString());
+      this.refreshChapterCache(comment.chapterId.toString()).catch(() => {});
     }
 
     return deletedResult.rows[0];
+  }
+
+  private async refreshStoryCache(storyId: string): Promise<void> {
+    // Fetch updated story data and warm the cache
+    const storyQuery = `
+      SELECT s.*, u.username as "authorUsername"
+      FROM "Story" s
+      LEFT JOIN "User" u ON s."authorId" = u.id
+      WHERE s.id = $1
+    `;
+    const storyResult = await this.pool.query(storyQuery, [storyId]);
+    if (storyResult.rows.length > 0) {
+      const story = storyResult.rows[0];
+      story.author = { username: story.authorUsername };
+      
+      // Fetch related data
+      const chaptersResult = await this.pool.query(
+        'SELECT id, title, "order", "storyId", "dateCreated" FROM "Chapter" WHERE "storyId" = $1 ORDER BY "order" DESC',
+        [storyId]
+      );
+      story.chapters = chaptersResult.rows;
+      
+      const commentsResult = await this.pool.query(
+        `SELECT sc.*, u.username as "authorUsername"
+         FROM "StoryComment" sc
+         LEFT JOIN "User" u ON sc."authorId" = u.id
+         WHERE sc."storyId" = $1 AND sc."chapterId" IS NULL
+         ORDER BY sc."dateCreated" DESC`,
+        [storyId]
+      );
+      story.storyComments = commentsResult.rows.map(comment => ({
+        ...comment,
+        author: { username: comment.authorUsername }
+      }));
+      
+      const tagsResult = await this.pool.query(
+        `SELECT t.name FROM "Tag" t
+         INNER JOIN "TagStory" ts ON t.id = ts."tagId"
+         WHERE ts."storyId" = $1
+         ORDER BY t.category ASC, t.name ASC`,
+        [storyId]
+      );
+      story.tags = tagsResult.rows.map(row => row.name);
+      
+      await this.cacheService.set('story-' + storyId, story);
+    }
+  }
+
+  private async refreshChapterCache(chapterId: string): Promise<void> {
+    // Fetch updated chapter data and warm the cache
+    const chapterQuery = `
+      SELECT c.*, s."authorId" as "storyAuthorId", s.isprivate as "storyIsPrivate"
+      FROM "Chapter" c 
+      JOIN "Story" s ON c."storyId" = s.id
+      WHERE c.id = $1
+    `;
+    const chapterResult = await this.pool.query(chapterQuery, [chapterId]);
+    if (chapterResult.rows.length > 0) {
+      const chapter = chapterResult.rows[0];
+      
+      const commentsResult = await this.pool.query(
+        `SELECT cc.*, u.username as "authorUsername"
+         FROM "StoryComment" cc
+         LEFT JOIN "User" u ON cc."authorId" = u.id
+         WHERE cc."chapterId" = $1
+         ORDER BY cc."dateCreated" DESC`,
+        [chapterId]
+      );
+      chapter.chapterComments = commentsResult.rows.map(comment => ({
+        ...comment,
+        author: { username: comment.authorUsername }
+      }));
+      
+      await this.cacheService.set('chapter-' + chapterId, chapter);
+    }
   }
 }
