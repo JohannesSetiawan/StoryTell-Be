@@ -13,6 +13,7 @@ import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { TagModule } from './tag/tag.module';
 import { BookmarkModule } from './bookmark/bookmark.module';
+import { FollowModule } from './follow/follow.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -31,6 +32,7 @@ import { APP_GUARD } from '@nestjs/core';
     HistoryModule,
     TagModule,
     BookmarkModule,
+    FollowModule,
     CacheModule.register({ 
       isGlobal: true, 
       ttl: 300000, // 5 minutes (300 seconds)

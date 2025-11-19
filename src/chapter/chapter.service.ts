@@ -4,18 +4,21 @@ import { ChapterDto, Chapter } from './chapter.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { getDateInWIB } from '../utils/date';
+import { FollowService } from '../follow/follow.service';
+import { ActivityType } from '../follow/follow.dto';
 
 @Injectable()
 export class ChapterService {
   constructor(
     @Inject('DATABASE_POOL') private pool: Pool,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
+    private followService: FollowService,
   ) {}
 
   async createChapter(data: ChapterDto, userId: string): Promise<Chapter> {
     const { storyId, title, content, order } = data;
 
-    const storyResult = await this.pool.query('SELECT "authorId" FROM "Story" WHERE id = $1', [storyId]);
+    const storyResult = await this.pool.query('SELECT "authorId", isprivate FROM "Story" WHERE id = $1', [storyId]);
     const story = storyResult.rows[0];
 
     if (!story) {
@@ -33,12 +36,28 @@ export class ChapterService {
     `;
     const values = [storyId, title, content, order];
     const newChapterResult = await this.pool.query(query, values);
+    const newChapter = newChapterResult.rows[0];
+
+    // Create activity feed entry for new chapter (only if story is not private)
+    if (!story.isprivate) {
+      try {
+        await this.followService.createActivity(
+          userId,
+          ActivityType.NEW_CHAPTER,
+          storyId,
+          newChapter.id,
+          { chapterTitle: newChapter.title, chapterOrder: newChapter.order }
+        );
+      } catch (error) {
+        console.error('Failed to create activity feed entry:', error);
+      }
+    }
 
     // Invalidate cache and proactively refresh with updated data
     await this.cacheService.del('story-' + storyId.toString());
     this.refreshStoryCache(storyId).catch(() => {});
 
-    return newChapterResult.rows[0];
+    return newChapter;
   }
 
   async getAllChapterForStory(storyId: string): Promise<Chapter[]> {

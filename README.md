@@ -21,12 +21,15 @@ SECRET_KEY = "YourSecret"
 
 ## Database Management
 
-This project uses `node-pg-migrate` for database migrations and `pg` for database access.
+This project uses `TypeORM` for database migrations and `pg` for database access.
 
 ### Migrations
 ```bash
 # Create a new migration file
-$ npm run db:migrate:create your-migration-name
+$ npm run db:migrate:create src/migrations/YourMigrationName
+
+# Show migration status
+$ npm run db:migrate:show
 
 # Run all pending migrations
 $ npm run db:migrate:up

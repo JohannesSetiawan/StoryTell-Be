@@ -4,6 +4,8 @@ import { StoryDto, Story } from './story.dto';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { getDateInWIB } from '../utils/date';
+import { FollowService } from '../follow/follow.service';
+import { ActivityType } from '../follow/follow.dto';
 
 export interface PaginatedResult<T> {
   data: T[];
@@ -24,6 +26,7 @@ export class StoryService {
   constructor(
     @Inject('DATABASE_POOL') private pool: Pool,
     @Inject(CACHE_MANAGER) private cacheService: Cache,
+    private followService: FollowService,
   ) {}
 
   async createStory(data: StoryDto, authorId: string): Promise<Story> {
@@ -46,6 +49,22 @@ export class StoryService {
         )
       );
       await Promise.all(insertTagPromises);
+    }
+
+    // Create activity feed entry for new story (only if not private)
+    if (!isprivate) {
+      try {
+        await this.followService.createActivity(
+          authorId,
+          ActivityType.NEW_STORY,
+          story.id,
+          undefined,
+          { title: story.title }
+        );
+      } catch (error) {
+        // Log error but don't fail the story creation
+        console.error('Failed to create activity feed entry:', error);
+      }
     }
 
     return story;
@@ -441,7 +460,7 @@ export class StoryService {
   }
 
   async updateStory(storyId: string, userId: string, data: Partial<StoryDto>): Promise<Story> {
-    const storyResult = await this.pool.query('SELECT id, "authorId", "storyStatus" FROM "Story" WHERE id = $1', [storyId]);
+    const storyResult = await this.pool.query('SELECT id, "authorId", "storyStatus", isprivate FROM "Story" WHERE id = $1', [storyId]);
     const story = storyResult.rows[0];
 
     if (!story) {
@@ -455,13 +474,16 @@ export class StoryService {
     }
 
     const { title, description, isprivate, tagIds, storyStatus } = data;
+    const oldStatus = story.storyStatus;
+    const newStatus = storyStatus || story.storyStatus;
+    
     const query = `
       UPDATE "Story"
       SET title = $1, description = $2, isprivate = $3, "storyStatus" = $4
       WHERE id = $5
       RETURNING *;
     `;
-    const values = [title, description, isprivate, storyStatus || story.storyStatus, storyId];
+    const values = [title, description, isprivate, newStatus, storyId];
     const updatedResult = await this.pool.query(query, values);
 
     // Update tags if provided
@@ -478,6 +500,21 @@ export class StoryService {
           )
         );
         await Promise.all(insertTagPromises);
+      }
+    }
+
+    // Create activity feed entry for status change (only if status changed and not private)
+    if (oldStatus !== newStatus && !isprivate && !story.isprivate) {
+      try {
+        await this.followService.createActivity(
+          userId,
+          ActivityType.STATUS_CHANGE,
+          storyId,
+          undefined,
+          { oldStatus, newStatus, title: title || story.title }
+        );
+      } catch (error) {
+        console.error('Failed to create activity feed entry:', error);
       }
     }
 

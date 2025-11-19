@@ -22,9 +22,10 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "db:migrate:create": "node-pg-migrate --migrations-dir src/migrations -r dotenv/config create --migration-file-language ts",
-    "db:migrate:up": "node-pg-migrate --migrations-dir src/migrations -r dotenv/config up",
-    "db:migrate:down": "node-pg-migrate --migrations-dir src/migrations -r dotenv/config down",
+    "db:migrate:create": "typeorm migration:create src/migrations",
+    "db:migrate:up": "typeorm-ts-node-commonjs migration:run -d typeorm.config.ts",
+    "db:migrate:down": "typeorm-ts-node-commonjs migration:revert -d typeorm.config.ts",
+    "db:migrate:show": "typeorm-ts-node-commonjs migration:show -d typeorm.config.ts",
     "db:seed": "ts-node src/seed.ts"
   },
   "dependencies": {
@@ -37,18 +38,19 @@
     "@nestjs/platform-express": "^11.1.9",
     "@nestjs/swagger": "^11.2.2",
     "@nestjs/throttler": "^6.4.0",
+    "@nestjs/typeorm": "^11.0.0",
     "bcrypt": "^6.0.0",
     "body-parser": "^2.2.0",
     "cache-manager": "^7.2.5",
     "dotenv": "^17.2.3",
     "jsonwebtoken": "^9.0.2",
-    "node-pg-migrate": "^8.0.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "typeorm": "^0.3.27"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
