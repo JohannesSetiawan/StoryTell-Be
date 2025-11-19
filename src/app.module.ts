@@ -16,6 +16,7 @@ import { BookmarkModule } from './bookmark/bookmark.module';
 import { FollowModule } from './follow/follow.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ExportModule } from './export/export.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { APP_GUARD } from '@nestjs/core';
     TagModule,
     BookmarkModule,
     FollowModule,
+    ExportModule,
     CacheModule.register({ 
       isGlobal: true, 
       ttl: 300000, // 5 minutes (300 seconds)
