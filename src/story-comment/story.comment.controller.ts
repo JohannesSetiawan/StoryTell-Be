@@ -94,6 +94,38 @@ export class StoryCommentController {
     
   }
 
+  @Get('/:storyId/paginated')
+  @ApiOperation({ summary: 'Get paginated comments for a story' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
+  @ApiResponse({ status: 200, description: 'The paginated comments have been successfully retrieved.' })
+  async getPaginatedStoryComments(
+    @Res() response,
+    @Param('storyId') storyId: string,
+    @Req() request
+  ) {
+    const page = parseInt(request.query.page) || 1;
+    const limit = parseInt(request.query.limit) || 10;
+    const result = await this.storyCommentService.getPaginatedStoryComments(storyId, page, limit);
+    return response.status(200).json(result);
+  }
+
+  @Get('/:storyId/:chapterId/paginated')
+  @ApiOperation({ summary: 'Get paginated comments for a chapter' })
+  @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
+  @ApiParam({ name: 'chapterId', description: 'The ID of the chapter', type: String })
+  @ApiResponse({ status: 200, description: 'The paginated comments have been successfully retrieved.' })
+  async getPaginatedChapterComments(
+    @Res() response,
+    @Param('storyId') storyId: string,
+    @Param('chapterId') chapterId: string,
+    @Req() request
+  ) {
+    const page = parseInt(request.query.page) || 1;
+    const limit = parseInt(request.query.limit) || 10;
+    const result = await this.storyCommentService.getPaginatedChapterComments(storyId, chapterId, page, limit);
+    return response.status(200).json(result);
+  }
+
   @Get('/:storyId/:id')
   @ApiOperation({ summary: 'Get a specific comment' })
   @ApiParam({ name: 'storyId', description: 'The ID of the story', type: String })
