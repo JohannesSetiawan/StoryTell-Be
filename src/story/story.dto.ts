@@ -45,7 +45,7 @@ export class Story {
   @ApiProperty({ type: () => [Chapter], required: false })
   chapters?: Chapter[];
   @ApiProperty({ default: false })
-  isPrivate: boolean;
+  isprivate: boolean;
   @ApiProperty({ type: () => [StoryComment], required: false })
   storyComments?: StoryComment[];
   @ApiProperty({ type: () => [Rating], required: false })

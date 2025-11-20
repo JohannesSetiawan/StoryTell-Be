@@ -183,7 +183,7 @@ export class StoryService {
     );
 
     if (cachedStoryData) {
-      this.checkIsPrivateStory(cachedStoryData, readUserId);
+      await this.checkIsPrivateStory(cachedStoryData, readUserId);
       if(readUserId) await this.createReadHistory(readUserId, id);
       return cachedStoryData;
     }
@@ -231,7 +231,7 @@ export class StoryService {
     const tagsResult = await this.dataSource.query(tagsQuery, [id]);
     story.tags = tagsResult.map(row => row.name);
 
-    this.checkIsPrivateStory(story, readUserId);
+    await this.checkIsPrivateStory(story, readUserId);
 
     if(readUserId) await this.createReadHistory(readUserId, id);
 
@@ -651,10 +651,22 @@ export class StoryService {
     };
   }
 
-  private checkIsPrivateStory(story: Story, readUserId: string) {
-    if (story.isPrivate) {
+  private async checkIsPrivateStory(story: Story, readUserId: string) {
+    if (story.isprivate) {
       if (!readUserId || readUserId !== story.authorId) {
-        throw new UnauthorizedException("You can't access this private story!");
+        // Check if user is admin
+        const userQuery = 'SELECT "isAdmin" FROM "User" WHERE id = $1';
+        const userResult = await this.dataSource.query(userQuery, [readUserId]);
+        const isAdmin = userResult[0]?.isAdmin || false;
+        
+        if (!isAdmin) {
+          // Get author username for the error response
+          const authorUsername = story.author?.username || story.authorId;
+          throw new ForbiddenException({
+            message: "This story is currently private. Try contacting the author for access.",
+            authorUsername: authorUsername
+          });
+        }
       }
     }
   }
