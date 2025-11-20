@@ -14,6 +14,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TagModule } from './tag/tag.module';
 import { BookmarkModule } from './bookmark/bookmark.module';
 import { FollowModule } from './follow/follow.module';
+import { CollectionModule } from './collection/collection.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ExportModule } from './export/export.module';
@@ -34,6 +35,7 @@ import { ExportModule } from './export/export.module';
     TagModule,
     BookmarkModule,
     FollowModule,
+    CollectionModule,
     ExportModule,
     CacheModule.register({ 
       isGlobal: true, 
