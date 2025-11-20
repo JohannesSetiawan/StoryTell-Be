@@ -18,6 +18,7 @@ import { CollectionModule } from './collection/collection.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ExportModule } from './export/export.module';
+import { MessageModule } from './message/message.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ExportModule } from './export/export.module';
     FollowModule,
     CollectionModule,
     ExportModule,
+    MessageModule,
     CacheModule.register({ 
       isGlobal: true, 
       ttl: 300000, // 5 minutes (300 seconds)
