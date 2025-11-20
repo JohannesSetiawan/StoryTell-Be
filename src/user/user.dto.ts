@@ -90,3 +90,27 @@ export class UserTokenPayload {
   @ApiProperty()
   isAdmin: boolean
 }
+
+export class UserListItemDto {
+  @ApiProperty()
+  id: string;
+  @ApiProperty()
+  username: string;
+  @ApiProperty({ required: false })
+  description?: string;
+  @ApiProperty()
+  dateCreated: Date;
+}
+
+export class UserListResponseDto {
+  @ApiProperty({ type: [UserListItemDto] })
+  data: UserListItemDto[];
+  @ApiProperty()
+  total: number;
+  @ApiProperty()
+  page: number;
+  @ApiProperty()
+  perPage: number;
+  @ApiProperty()
+  totalPages: number;
+}

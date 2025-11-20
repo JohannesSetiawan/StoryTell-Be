@@ -128,4 +128,39 @@ export class UserService {
     const result = await this.dataSource.query('DELETE FROM "User" WHERE id = $1 RETURNING id, username, description, "dateCreated", "isAdmin"', [userId]);
     return result[0];
   }
+
+  async getUserList(page: number = 1, perPage: number = 20, username?: string) {
+    const offset = (page - 1) * perPage;
+    
+    let query = 'SELECT id, username, description, "dateCreated" FROM "User"';
+    let countQuery = 'SELECT COUNT(*) as total FROM "User"';
+    const params: any[] = [];
+    const countParams: any[] = [];
+    
+    if (username && username.trim() !== '') {
+      query += ' WHERE username ILIKE $1';
+      countQuery += ' WHERE username ILIKE $1';
+      params.push(`%${username}%`);
+      countParams.push(`%${username}%`);
+    }
+    
+    query += ` ORDER BY "dateCreated" DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(perPage, offset);
+    
+    const [users, countResult] = await Promise.all([
+      this.dataSource.query(query, params),
+      this.dataSource.query(countQuery, countParams),
+    ]);
+    
+    const total = parseInt(countResult[0].total);
+    const totalPages = Math.ceil(total / perPage);
+    
+    return {
+      data: users,
+      total,
+      page,
+      perPage,
+      totalPages,
+    };
+  }
 }

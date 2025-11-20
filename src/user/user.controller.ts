@@ -7,13 +7,14 @@ import {
   Req,
   Res,
   Param,
-  Put
+  Put,
+  Query
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UpdateUserData, UserCreationData, UserLoginData, User, LoginResponseDto, UserResponseDto } from './user.dto';
+import { UpdateUserData, UserCreationData, UserLoginData, User, LoginResponseDto, UserResponseDto, UserListResponseDto } from './user.dto';
 import { JwtGuard } from './jwt.guard';
 import { Response } from 'express';
-import { ApiBearerAuth, ApiBody, ApiParam, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiParam, ApiOperation, ApiResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
 
 @ApiTags('user')
 @Controller('user')
@@ -61,6 +62,29 @@ export class UserController {
         throw new Error('User ID not found in request');
       }
       const responseData = await this.userService.user(userId);
+      return response.status(200).json(responseData);
+    } catch (error) {
+      return response.status(400).json({ message: error.message });
+    }
+  }
+
+  @Get('/list')
+  @ApiOperation({ summary: 'Get list of all users with pagination and filtering' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'perPage', required: false, type: Number, description: 'Items per page (default: 20)' })
+  @ApiQuery({ name: 'username', required: false, type: String, description: 'Filter by username (case-insensitive, partial match)' })
+  @ApiResponse({ status: 200, description: 'List of users with pagination.', type: UserListResponseDto })
+  @ApiResponse({ status: 400, description: 'Bad request.' })
+  async getUserList(
+    @Query('page') page: string = '1',
+    @Query('perPage') perPage: string = '20',
+    @Query('username') username: string,
+    @Res() response
+  ) {
+    try {
+      const pageNum = parseInt(page) || 1;
+      const perPageNum = parseInt(perPage) || 20;
+      const responseData = await this.userService.getUserList(pageNum, perPageNum, username);
       return response.status(200).json(responseData);
     } catch (error) {
       return response.status(400).json({ message: error.message });
