@@ -111,6 +111,23 @@ export class CollectionService {
     const collection = await this.checkOwnership(id, userId);
 
     const { name, description, isPublic, isCollaborative } = data;
+
+    // Rule 2: Cannot make collection public if it contains private stories
+    if (isPublic === true && !collection.isPublic) {
+      const privateStoriesQuery = `
+        SELECT COUNT(*) as count
+        FROM "CollectionStory" cs
+        JOIN "Story" s ON cs."storyId" = s.id
+        WHERE cs."collectionId" = $1 AND s.isprivate = true
+      `;
+      const privateStoriesResult = await this.dataSource.query(privateStoriesQuery, [id]);
+      const privateStoriesCount = parseInt(privateStoriesResult[0].count, 10);
+      
+      if (privateStoriesCount > 0) {
+        throw new ForbiddenException(`Cannot make collection public. It contains ${privateStoriesCount} private ${privateStoriesCount === 1 ? 'story' : 'stories'}. Please remove private stories first.`);
+      }
+    }
+
     const query = `
       UPDATE "Collection"
       SET name = COALESCE($1, name), 
@@ -137,10 +154,23 @@ export class CollectionService {
       throw new ForbiddenException('You do not have permission to add stories to this collection');
     }
 
-    // Check if story exists
-    const storyExists = await this.dataSource.query(`SELECT 1 FROM "Story" WHERE id = $1`, [storyId]);
-    if (storyExists.length === 0) {
+    // Get collection details
+    const collectionResult = await this.dataSource.query(`SELECT "isPublic" FROM "Collection" WHERE id = $1`, [collectionId]);
+    if (collectionResult.length === 0) {
+      throw new NotFoundException('Collection not found');
+    }
+    const collection = collectionResult[0];
+
+    // Check if story exists and get its privacy status
+    const storyResult = await this.dataSource.query(`SELECT isprivate FROM "Story" WHERE id = $1`, [storyId]);
+    if (storyResult.length === 0) {
       throw new NotFoundException('Story not found');
+    }
+    const story = storyResult[0];
+
+    // Rule 1: Private stories cannot be added to public collections
+    if (collection.isPublic && story.isprivate) {
+      throw new ForbiddenException('Private stories cannot be added to public collections');
     }
 
     // Get max order
